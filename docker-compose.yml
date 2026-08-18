@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: opsdesk_db
+      POSTGRES_USER: opsdesk
+      POSTGRES_PASSWORD: opsdesk_dev_only
+    ports:
+      - "5433:5432"
+    volumes:
+      - opsdesk_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opsdesk -d opsdesk_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ["alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    working_dir: /app
+    environment: &opsdesk-environment
+      OPS_ENVIRONMENT: development
+      OPS_DATABASE_URL: postgresql+psycopg://opsdesk:opsdesk_dev_only@postgres:5432/opsdesk_db
+      OPS_CSRF_SECRET_KEY: compose-development-only-secret-change-me
+      OPS_SESSION_COOKIE_SECURE: "false"
+    volumes:
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    environment: *opsdesk-environment
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  opsdesk_postgres_data:

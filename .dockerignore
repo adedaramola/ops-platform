@@ -19,4 +19,6 @@ htmlcov
 .vscode
 tests
 deploy
+requirements.md
+PHASE_*_PLAN.md
 *.log

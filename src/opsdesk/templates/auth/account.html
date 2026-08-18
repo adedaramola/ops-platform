@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Account · OpsDesk{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Your account</h1>
+  <dl>
+    <dt>Email</dt><dd>{{ user.email }}</dd>
+    <dt>Role</dt><dd>{{ user.role_key }}</dd>
+    <dt>Status</dt><dd>{{ "Active" if user.is_active else "Inactive" }}</dd>
+  </dl>
+  <form method="post" action="/logout">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="secondary">Sign out</button>
+  </form>
+</section>
+{% endblock %}
