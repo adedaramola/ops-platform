@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -21,6 +22,8 @@ from opsdesk.core.errors import AuthenticationError, ConflictError, RateLimitErr
 from opsdesk.db.base import utc_now
 from opsdesk.db.models import LoginThrottle, User, UserSession
 from opsdesk.observability.logging import get_logger
+from opsdesk.observability.metrics import OpsMetrics
+from opsdesk.observability.tracing import Telemetry
 
 
 @dataclass(slots=True)
@@ -36,11 +39,19 @@ class LoginResult:
 
 
 class AuthService:
-    def __init__(self, db: Session, settings: Settings) -> None:
+    def __init__(
+        self,
+        db: Session,
+        settings: Settings,
+        metrics: OpsMetrics | None = None,
+        telemetry: Telemetry | None = None,
+    ) -> None:
         self.db = db
         self.settings = settings
         self.repository = AuthRepository(db)
         self.passwords = get_password_service()
+        self.metrics = metrics
+        self.telemetry = telemetry
 
     def register(self, email: str, password: str, request_id: str) -> User:
         normalized_email = normalize_email(email)
@@ -76,6 +87,17 @@ class AuthService:
         client_address: str,
         request_id: str,
     ) -> LoginResult:
+        context = self.telemetry.span("auth.login") if self.telemetry else nullcontext()
+        with context:
+            return self._login(email, password, client_address, request_id)
+
+    def _login(
+        self,
+        email: str,
+        password: str,
+        client_address: str,
+        request_id: str,
+    ) -> LoginResult:
         now = utc_now()
         normalized_email = normalize_email(email)
         throttle_key = make_throttle_key(normalized_email, client_address, self.settings)
@@ -95,15 +117,21 @@ class AuthService:
             get_logger().warning(
                 "rate_limit.exceeded", event_name="rate_limit.exceeded", outcome="blocked"
             )
+            if self.metrics:
+                self.metrics.login_attempts.labels(outcome="rate_limited").inc()
             raise RateLimitError()
 
         user = self.repository.find_user_by_email(normalized_email)
         if user is None:
             self.passwords.consume_dummy_verification(password)
             self._record_login_failure(throttle_key, throttle, now, request_id, None)
+            if self.metrics:
+                self.metrics.login_attempts.labels(outcome="invalid_credentials").inc()
             raise AuthenticationError()
         if not self.passwords.verify(user.password_hash, password) or not user.is_active:
             self._record_login_failure(throttle_key, throttle, now, request_id, user.id)
+            if self.metrics:
+                self.metrics.login_attempts.labels(outcome="invalid_credentials").inc()
             raise AuthenticationError()
 
         self.repository.clear_throttle(throttle_key)
@@ -131,6 +159,8 @@ class AuthService:
             event_name="user.login_succeeded",
             user_id=str(user.id),
         )
+        if self.metrics:
+            self.metrics.login_attempts.labels(outcome="succeeded").inc()
         return LoginResult(AuthPrincipal(user=user, session=session), raw_token)
 
     def authenticate_session(self, raw_token: str) -> AuthPrincipal:

@@ -10,6 +10,7 @@ from opsdesk.auth.service import AuthPrincipal, AuthService
 from opsdesk.core.config import Settings, get_settings
 from opsdesk.core.errors import AuthenticationError
 from opsdesk.db.session import get_db_session
+from opsdesk.observability.dependencies import MetricsDependency, TelemetryDependency
 
 DatabaseSession = Annotated[Session, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
@@ -17,8 +18,13 @@ session_cookie_scheme = APIKeyCookie(name="opsdesk_session", auto_error=False)
 DeclaredSessionCookie = Annotated[str | None, Security(session_cookie_scheme)]
 
 
-def get_auth_service(db: DatabaseSession, settings: AppSettings) -> AuthService:
-    return AuthService(db, settings)
+def get_auth_service(
+    db: DatabaseSession,
+    settings: AppSettings,
+    metrics: MetricsDependency,
+    telemetry: TelemetryDependency,
+) -> AuthService:
+    return AuthService(db, settings, metrics, telemetry)
 
 
 AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]

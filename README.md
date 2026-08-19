@@ -2,7 +2,7 @@
 
 OpsDesk is a server-rendered support-ticket and knowledge-management application. The core product is a modular FastAPI monolith backed by PostgreSQL and remains fully functional when every AI integration is disabled.
 
-This repository is currently at **Phase 3: complete non-AI ticket application**.
+This repository is currently at **Phase 4: observable non-AI application and demo traffic**.
 
 ## Implemented in Phase 2
 
@@ -34,7 +34,20 @@ This repository is currently at **Phase 3: complete non-AI ticket application**.
 - Server-rendered Jinja2 pages with progressively enhanced HTMX navigation
 - Versioned `/api/v1` endpoints with cookie-security and error schemas in OpenAPI
 
-Metrics, tracing, and the optional demo traffic generator are intentionally deferred to Phase 4.
+## Implemented in Phase 4
+
+- Prometheus exposition at `/metrics` with bounded HTTP, login, ticket, authorization,
+  database, and application-error labels
+- Configurable OpenTelemetry HTTP, SQLAlchemy, and important service spans
+- Incoming W3C trace-context propagation plus request/trace correlation in JSON logs
+- Non-blocking OTLP/HTTP export that does not participate in readiness
+- Optional, rate- and concurrency-bounded demo traffic with clean cancellation
+- Realistic success traffic and controlled `401`, `403`, `404`, `409`, `422`, and `429`
+  outcomes
+- Development-only bounded slow and `500` scenarios with production configuration guards
+- Pinned official Prometheus and OpenTelemetry Collector Compose services
+
+Production containers and Kubernetes manifests are intentionally deferred to Phase 5.
 
 ## Quick start with Docker Compose
 
@@ -52,6 +65,7 @@ Open:
 - OpenAPI: <http://localhost:8000/docs>
 - Liveness: <http://localhost:8000/health/live>
 - Readiness: <http://localhost:8000/health/ready>
+- Prometheus exposition: <http://localhost:8000/metrics>
 
 The Compose stack uses clearly marked development-only credentials. Do not reuse them outside local development.
 
@@ -112,6 +126,55 @@ The seed command refuses to run outside the development environment.
 The generated identities are `demo-user@opsdesk.example.com`,
 `demo-agent@opsdesk.example.com`, and `demo-admin@opsdesk.example.com`.
 
+## Optional observability stack
+
+OpsDesk metrics are always available without another service. Enable trace export and start the
+pinned official Prometheus and OpenTelemetry Collector images with:
+
+```bash
+OPS_OTEL_ENABLED=true docker compose --profile observability up --build -d
+```
+
+Open Prometheus at <http://localhost:9090>. Representative queries include
+`rate(opsdesk_http_requests_total[1m])` and
+`histogram_quantile(0.95, sum by (le) (rate(opsdesk_http_request_duration_seconds_bucket[5m])))`.
+The local Collector uses its debug exporter, so representative spans are visible through:
+
+```bash
+docker compose --profile observability logs otel-collector
+```
+
+The application uses OTLP/HTTP at `OPS_OTEL_EXPORTER_OTLP_ENDPOINT`. Export is disabled by
+default, and an unavailable Collector never changes application responses or readiness.
+
+## Optional demo traffic
+
+The demo workload is disabled by default. The `demo` profile explicitly seeds designated local
+accounts and runs the traffic CLI using the OpsDesk image:
+
+```bash
+OPS_TRAFFIC_DURATION_SECONDS=30 \
+OPS_TRAFFIC_RATE_PER_SECOND=0.5 \
+OPS_TRAFFIC_CONCURRENCY=2 \
+docker compose --profile demo run --build --rm traffic
+```
+
+Rate is measured in complete scenarios per second. Each scenario logs in, creates and searches
+for a ticket, comments, assigns it, changes priority, and moves it through status transitions.
+The first scenario also produces controlled client-error outcomes. Every generated request carries
+the bounded `traffic_source=demo` marker, which is observability metadata only and grants no access.
+
+To include bounded slow and `500` development scenarios, opt in explicitly on both the API and
+traffic workload:
+
+```bash
+OPS_ENABLE_CONTROLLED_FAILURES=true \
+docker compose --profile demo run --build --rm traffic
+```
+
+Configuration validation rejects controlled failures outside development and rejects demo traffic
+in production. `SIGINT` and `SIGTERM` stop the generator and cancel in-flight scenarios cleanly.
+
 ## Configuration and security notes
 
 - All configuration uses the `OPS_` environment-variable prefix.
@@ -122,6 +185,8 @@ The generated identities are `demo-user@opsdesk.example.com`,
 - PostgreSQL is published on host port `5433` to avoid common local port `5432` collisions.
 - Regular-user queries never load private-note rows, and private-note activity is filtered from user history.
 - Search logs contain only bounded filter-presence fields, never raw search terms.
+- Metric labels and span attributes exclude user IDs, ticket IDs, request IDs, emails, queries,
+  descriptions, comments, internal notes, credentials, and connection strings.
 
 ## Ticket API overview
 

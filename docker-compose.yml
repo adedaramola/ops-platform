@@ -24,6 +24,9 @@ services:
       OPS_DATABASE_URL: postgresql+psycopg://opsdesk:opsdesk_dev_only@postgres:5432/opsdesk_db
       OPS_CSRF_SECRET_KEY: compose-development-only-secret-change-me
       OPS_SESSION_COOKIE_SECURE: "false"
+      OPS_OTEL_ENABLED: "${OPS_OTEL_ENABLED:-false}"
+      OPS_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+      OPS_ENABLE_CONTROLLED_FAILURES: "${OPS_ENABLE_CONTROLLED_FAILURES:-false}"
     volumes:
       - ./alembic.ini:/app/alembic.ini:ro
       - ./migrations:/app/migrations:ro
@@ -46,5 +49,68 @@ services:
       timeout: 3s
       retries: 20
 
+  prometheus:
+    image: prom/prometheus:v3.13.1
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - opsdesk_prometheus_data:/prometheus
+    depends_on:
+      api:
+        condition: service_healthy
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      - "4318:4318"
+      - "13133:13133"
+    volumes:
+      - ./deploy/observability/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+
+  seed:
+    build: .
+    profiles: ["demo"]
+    command: ["opsdesk-seed"]
+    environment:
+      <<: *opsdesk-environment
+      OPS_ENABLE_DEV_SEED: "true"
+      OPS_SEED_USER_PASSWORD: "${OPS_DEMO_USER_PASSWORD:-Demo-User-Only-99!}"
+      OPS_SEED_AGENT_PASSWORD: "${OPS_DEMO_AGENT_PASSWORD:-Demo-Agent-Only-99!}"
+      OPS_SEED_ADMIN_PASSWORD: "${OPS_DEMO_ADMIN_PASSWORD:-Demo-Admin-Only-99!}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  traffic:
+    build: .
+    profiles: ["demo"]
+    command: ["opsdesk-traffic"]
+    environment:
+      <<: *opsdesk-environment
+      OPS_TRAFFIC_ENABLED: "true"
+      OPS_TRAFFIC_BASE_URL: http://api:8000
+      OPS_TRAFFIC_RATE_PER_SECOND: "${OPS_TRAFFIC_RATE_PER_SECOND:-0.2}"
+      OPS_TRAFFIC_CONCURRENCY: "${OPS_TRAFFIC_CONCURRENCY:-2}"
+      OPS_TRAFFIC_DURATION_SECONDS: "${OPS_TRAFFIC_DURATION_SECONDS:-60}"
+      OPS_TRAFFIC_CONTROLLED_OUTCOMES: "${OPS_TRAFFIC_CONTROLLED_OUTCOMES:-true}"
+      OPS_TRAFFIC_CONTROLLED_FAILURES: "${OPS_ENABLE_CONTROLLED_FAILURES:-false}"
+      OPS_SEED_USER_PASSWORD: "${OPS_DEMO_USER_PASSWORD:-Demo-User-Only-99!}"
+      OPS_SEED_AGENT_PASSWORD: "${OPS_DEMO_AGENT_PASSWORD:-Demo-Agent-Only-99!}"
+    depends_on:
+      api:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    restart: "no"
+
 volumes:
   opsdesk_postgres_data:
+  opsdesk_prometheus_data:

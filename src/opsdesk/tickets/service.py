@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from contextlib import nullcontext
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -18,6 +19,8 @@ from opsdesk.core.errors import (
 from opsdesk.db.base import utc_now
 from opsdesk.db.models import User
 from opsdesk.observability.logging import get_logger
+from opsdesk.observability.metrics import OpsMetrics
+from opsdesk.observability.tracing import Telemetry
 from opsdesk.tickets.models import (
     Comment,
     InternalNote,
@@ -45,14 +48,35 @@ ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 
 
 class TicketService:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        metrics: OpsMetrics | None = None,
+        telemetry: Telemetry | None = None,
+    ) -> None:
         self.db = db
         self.repository = TicketRepository(db)
         self.categories = CategoryService(db)
         self.users = UserRepository(db)
         self.audit = AuthRepository(db)
+        self.metrics = metrics
+        self.telemetry = telemetry
 
     def create(
+        self,
+        principal: AuthPrincipal,
+        payload: TicketCreate,
+        request_id: str,
+    ) -> Ticket:
+        context = (
+            self.telemetry.span("ticket.create", {"ticket.priority": str(payload.priority)})
+            if self.telemetry
+            else nullcontext()
+        )
+        with context:
+            return self._create(principal, payload, request_id)
+
+    def _create(
         self,
         principal: AuthPrincipal,
         payload: TicketCreate,
@@ -81,6 +105,8 @@ class TicketService:
             ticket_id=str(ticket.id),
             priority=ticket.priority,
         )
+        if self.metrics:
+            self.metrics.tickets_created.labels(priority=ticket.priority).inc()
         return ticket
 
     def list(
@@ -328,6 +354,32 @@ class TicketService:
         metadata: dict[str, Any],
         request_id: str,
     ) -> Ticket:
+        context = (
+            self.telemetry.span("ticket.change", {"ticket.operation": event_type})
+            if self.telemetry
+            else nullcontext()
+        )
+        with context:
+            return self._apply_versioned_change(
+                ticket,
+                principal,
+                expected_version,
+                values,
+                event_type,
+                metadata,
+                request_id,
+            )
+
+    def _apply_versioned_change(
+        self,
+        ticket: Ticket,
+        principal: AuthPrincipal,
+        expected_version: int,
+        values: dict[str, Any],
+        event_type: str,
+        metadata: dict[str, Any],
+        request_id: str,
+    ) -> Ticket:
         if not self.repository.update_versioned(ticket.id, expected_version, values):
             self.db.rollback()
             raise ConflictError("Ticket was changed by another request; refresh and try again")
@@ -344,6 +396,11 @@ class TicketService:
             event_name=event_type,
             ticket_id=str(updated.id),
         )
+        if self.metrics and event_type == "ticket.status_changed":
+            self.metrics.ticket_status_transitions.labels(
+                from_status=str(metadata["from"]),
+                to_status=str(metadata["to"]),
+            ).inc()
         return updated
 
     def _add_activity(

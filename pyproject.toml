@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opsdesk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Production-minded support ticket and knowledge management application"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,7 +13,13 @@ dependencies = [
   "argon2-cffi>=23.1,<26.0",
   "email-validator>=2.2,<3.0",
   "fastapi>=0.115,<1.0",
+  "httpx>=0.28,<1.0",
   "jinja2>=3.1,<4.0",
+  "opentelemetry-api>=1.44,<2.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.44,<2.0",
+  "opentelemetry-instrumentation-sqlalchemy>=0.65b0,<0.66",
+  "opentelemetry-sdk>=1.44,<2.0",
+  "prometheus-client>=0.26,<1.0",
   "psycopg[binary]>=3.2,<4.0",
   "pydantic-settings>=2.10,<3.0",
   "python-multipart>=0.0.20,<1.0",
@@ -24,7 +30,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "httpx>=0.28,<1.0",
   "mypy>=1.16,<2.0",
   "pytest>=8.4,<9.0",
   "pytest-cov>=6.2,<8.0",
@@ -33,6 +38,7 @@ dev = [
 
 [project.scripts]
 opsdesk-seed = "opsdesk.cli:seed_dev_data"
+opsdesk-traffic = "opsdesk.traffic.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

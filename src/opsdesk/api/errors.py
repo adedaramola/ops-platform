@@ -6,10 +6,11 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 
 from opsdesk.core.errors import AppError, AuthorizationError
 from opsdesk.observability.logging import get_logger
-from opsdesk.observability.middleware import get_request_id
+from opsdesk.observability.middleware import get_request_id, get_route_template
 
 
 class ErrorDetail(BaseModel):
@@ -43,6 +44,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, error: AppError) -> JSONResponse:
         if isinstance(error, AuthorizationError):
+            request.app.state.metrics.authorization_denials.labels(
+                method=request.method,
+                route=get_route_template(request),
+            ).inc()
             get_logger().warning(
                 "authorization.denied", event_name="authorization.denied", outcome="denied"
             )
@@ -55,6 +60,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def validation_error_handler(
         request: Request, _error: RequestValidationError
     ) -> JSONResponse:
+        request.app.state.metrics.application_errors.labels(category="validation").inc()
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=_payload(
@@ -70,9 +76,27 @@ def register_exception_handlers(app: FastAPI) -> None:
             content=_payload("HTTP_ERROR", message, get_request_id(request)),
         )
 
+    @app.exception_handler(SQLAlchemyError)
+    async def database_error_handler(request: Request, error: SQLAlchemyError) -> JSONResponse:
+        request.app.state.metrics.database_errors.labels(operation="request").inc()
+        get_logger().error(
+            "database.error",
+            event_name="database.error",
+            error_type=type(error).__name__,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=_payload(
+                "DATABASE_UNAVAILABLE",
+                "A required database operation failed",
+                get_request_id(request),
+            ),
+        )
+
     @app.exception_handler(Exception)
     async def unexpected_error_handler(request: Request, error: Exception) -> JSONResponse:
-        get_logger().exception(
+        request.app.state.metrics.application_errors.labels(category="unexpected").inc()
+        get_logger().error(
             "unexpected_error",
             event_name="unexpected_error",
             error_type=type(error).__name__,
