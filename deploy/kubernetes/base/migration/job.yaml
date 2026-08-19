@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opsdesk-migrate-v0002
+  namespace: opsdesk
+  labels:
+    app.kubernetes.io/name: opsdesk
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: opsdesk
+    app.kubernetes.io/version: 0.4.0
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opsdesk
+        app.kubernetes.io/component: migration
+        app.kubernetes.io/part-of: opsdesk
+    spec:
+      restartPolicy: Never
+      serviceAccountName: opsdesk-migrator
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: opsdesk:0.4.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - alembic
+            - -c
+            - /app/alembic.ini
+            - upgrade
+            - head
+          env:
+            - name: TMPDIR
+              value: /tmp
+          envFrom:
+            - configMapRef:
+                name: opsdesk-runtime
+            - secretRef:
+                name: opsdesk-runtime
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 32Mi

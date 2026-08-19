@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: opsdesk
+  namespace: opsdesk
+  labels:
+    app.kubernetes.io/name: opsdesk
+    app.kubernetes.io/part-of: opsdesk
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opsdesk
+      app.kubernetes.io/component: application

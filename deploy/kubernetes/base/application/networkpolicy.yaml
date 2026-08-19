@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opsdesk-ingress
+  namespace: opsdesk
+  labels:
+    app.kubernetes.io/name: opsdesk
+    app.kubernetes.io/part-of: opsdesk
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: opsdesk
+      app.kubernetes.io/component: application
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8000

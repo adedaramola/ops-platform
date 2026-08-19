@@ -2,7 +2,7 @@
 
 OpsDesk is a server-rendered support-ticket and knowledge-management application. The core product is a modular FastAPI monolith backed by PostgreSQL and remains fully functional when every AI integration is disabled.
 
-This repository is currently at **Phase 4: observable non-AI application and demo traffic**.
+This repository is currently at **Phase 5: production packaging and deployment contracts**.
 
 ## Implemented in Phase 2
 
@@ -47,7 +47,21 @@ This repository is currently at **Phase 4: observable non-AI application and dem
 - Development-only bounded slow and `500` scenarios with production configuration guards
 - Pinned official Prometheus and OpenTelemetry Collector Compose services
 
-Production containers and Kubernetes manifests are intentionally deferred to Phase 5.
+## Implemented in Phase 5
+
+- Production image version `0.4.0` with fixed numeric UID/GID `10001:10001`
+- Alembic configuration and migrations included in the same immutable application image
+- Read-only-root-compatible runtime with a bounded writable `/tmp`
+- Production validation for PostgreSQL, development credentials, and database pool limits
+- Configurable SQLAlchemy pool size, overflow, timeout, recycle, and connection timeout
+- Portable Kustomize packages that keep migration and application rollout ordering explicit
+- Restricted pod/container security contexts, probes, resources, disruption budget, and ingress policy
+- External PostgreSQL and runtime-secret contract ready for private Amazon RDS
+- CI checks for image contents, numeric identity, read-only startup, manifests, and Kubernetes schemas
+- Migration, rollout, rollback, database-compatibility, and AWS ownership documentation
+
+AWS infrastructure, EKS, and RDS provisioning are intentionally deferred to Phase 6 and belong to
+the separate EKS observability platform repository.
 
 ## Quick start with Docker Compose
 
@@ -102,6 +116,15 @@ mypy
 pytest --cov --cov-report=term-missing
 alembic check
 ```
+
+## Production deployment contract
+
+Phase 5 defines portable Kubernetes packages under `deploy/kubernetes` without applying resources.
+The migration Job is intentionally rendered separately from the application so a deployment
+pipeline must wait for Alembic before rolling out OpsDesk.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the image contract, required runtime secrets, external
+PostgreSQL configuration, manifest layout, rollout order, and rollback rules.
 
 ## Optional development accounts
 

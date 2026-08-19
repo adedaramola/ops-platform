@@ -59,6 +59,48 @@ jobs:
       - name: Validate Compose profiles
         run: docker compose --profile observability --profile demo config --quiet
       - name: Build production image
-        run: docker build -t opsdesk:${{ github.sha }} .
+        run: >-
+          docker build --build-arg VCS_REF=${{ github.sha }}
+          -t opsdesk:${{ github.sha }} .
       - name: Verify non-root image user
-        run: test "$(docker image inspect opsdesk:${{ github.sha }} --format '{{.Config.User}}')" = "opsdesk"
+        run: test "$(docker image inspect opsdesk:${{ github.sha }} --format '{{.Config.User}}')" = "10001:10001"
+      - name: Inspect production image contents
+        run: >-
+          docker run --rm --entrypoint sh opsdesk:${{ github.sha }} -c
+          'test -f /app/alembic.ini &&
+          test -f /app/migrations/versions/0002_ticket_domain.py &&
+          test ! -d /app/tests &&
+          ! python -c "import pytest"'
+      - name: Exercise read-only runtime
+        shell: bash
+        run: |
+          container_id=$(docker run --detach --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --publish 18000:8000 \
+            --env OPS_ENVIRONMENT=production \
+            --env OPS_DATABASE_URL=postgresql+psycopg://opsdesk:container_test_only@127.0.0.1:5432/opsdesk_db \
+            --env OPS_CSRF_SECRET_KEY=container-test-only-secret \
+            --env OPS_SESSION_COOKIE_SECURE=true \
+            opsdesk:${{ github.sha }})
+          trap 'docker logs "$container_id"; docker rm --force "$container_id"' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:18000/health/live >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: Render Kubernetes manifests
+        run: |
+          mkdir -p build
+          docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
+            registry.k8s.io/kubectl:v1.34.1@sha256:59bafa07ff3a6d4b417e7633ddb9d79a9606ca98bf64bac080b3e65748669250 \
+            kustomize deploy/kubernetes/base > build/opsdesk.yaml
+          docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
+            registry.k8s.io/kubectl:v1.34.1@sha256:59bafa07ff3a6d4b417e7633ddb9d79a9606ca98bf64bac080b3e65748669250 \
+            kustomize deploy/kubernetes/base/migration > build/migration.yaml
+      - name: Validate Kubernetes schemas
+        run: >-
+          docker run --rm --volume "$PWD/build:/manifests:ro"
+          ghcr.io/yannh/kubeconform:v0.7.0@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c
+          -strict -summary /manifests

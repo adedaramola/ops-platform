@@ -1,4 +1,4 @@
-.PHONY: install format lint type test test-integration run migrate compose-up compose-down seed
+.PHONY: install format lint type test test-integration run migrate compose-up compose-down seed manifests
 
 install:
 	python -m pip install -e ".[dev]"
@@ -33,3 +33,7 @@ compose-down:
 
 seed:
 	opsdesk-seed
+
+manifests:
+	kubectl kustomize deploy/kubernetes/base >/dev/null
+	kubectl kustomize deploy/kubernetes/base/migration >/dev/null

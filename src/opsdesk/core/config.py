@@ -5,14 +5,23 @@ from typing import Literal
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 
 class Settings(BaseSettings):
     service_name: str = "opsdesk"
     environment: Literal["development", "test", "staging", "production"] = "development"
-    version: str = "0.3.0"
+    version: str = "0.4.0"
     log_level: str = "INFO"
-    database_url: str = "postgresql+psycopg://opsdesk:opsdesk_dev_only@localhost:5433/opsdesk_db"
+    database_url: SecretStr = SecretStr(
+        "postgresql+psycopg://opsdesk:opsdesk_dev_only@localhost:5433/opsdesk_db"
+    )
+    database_pool_size: int = 5
+    database_max_overflow: int = 5
+    database_pool_timeout_seconds: int = 30
+    database_pool_recycle_seconds: int = 1800
+    database_connect_timeout_seconds: int = 3
     csrf_secret_key: SecretStr = SecretStr("development-only-change-me")
     session_cookie_name: str = "opsdesk_session"
     csrf_cookie_name: str = "opsdesk_csrf"
@@ -65,6 +74,29 @@ class Settings(BaseSettings):
             raise ValueError("Controlled failures can only be enabled in development")
         if self.traffic_enabled and self.environment == "production":
             raise ValueError("Demo traffic cannot be enabled in production")
+        if self.environment in {"staging", "production"}:
+            try:
+                database_url = make_url(self.database_url.get_secret_value())
+            except ArgumentError:
+                raise ValueError("A valid database URL is required outside development") from None
+            if database_url.password == "opsdesk_dev_only":
+                raise ValueError(
+                    "Development database credentials are not allowed outside development"
+                )
+            if database_url.drivername != "postgresql+psycopg":
+                raise ValueError(
+                    "PostgreSQL with the psycopg driver is required outside development"
+                )
+        if not 1 <= self.database_pool_size <= 50:
+            raise ValueError("Database pool size must be between 1 and 50")
+        if not 0 <= self.database_max_overflow <= 50:
+            raise ValueError("Database max overflow must be between 0 and 50")
+        if not 1 <= self.database_pool_timeout_seconds <= 300:
+            raise ValueError("Database pool timeout must be between 1 and 300 seconds")
+        if not 30 <= self.database_pool_recycle_seconds <= 86_400:
+            raise ValueError("Database pool recycle must be between 30 and 86400 seconds")
+        if not 1 <= self.database_connect_timeout_seconds <= 60:
+            raise ValueError("Database connect timeout must be between 1 and 60 seconds")
         if not 0.0 <= self.otel_sample_ratio <= 1.0:
             raise ValueError("OpenTelemetry sample ratio must be between 0 and 1")
         if self.otel_export_timeout_seconds <= 0:
