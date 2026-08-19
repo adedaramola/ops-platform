@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ ticket.display_number }} · OpsDesk{% endblock %}
+{% block content %}
+<section class="page-heading"><div><p><a href="/tickets">← Tickets</a></p><h1>{{ ticket.display_number }} · {{ ticket.title }}</h1></div><span class="badge">v{{ ticket.version }}</span></section>
+<section class="card">
+  <dl><dt>Status</dt><dd>{{ ticket.status|replace("_", " ")|title }}</dd><dt>Priority</dt><dd>{{ ticket.priority|title }}</dd><dt>Category</dt><dd>{{ ticket.category.name }}</dd><dt>Assignee</dt><dd>{{ ticket.assignee_id or "Unassigned" }}</dd></dl>
+  <h2>Description</h2><div class="prose">{{ ticket.description }}</div>
+</section>
+
+{% if principal.user.role_key == "agent" and not ticket.assignee_id %}
+<form class="inline-form" method="post" action="/tickets/{{ ticket.id }}/assignment"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_version" value="{{ ticket.version }}"><input type="hidden" name="assignee_id" value="{{ principal.user.id }}"><button type="submit">Claim ticket</button></form>
+{% endif %}
+{% if principal.user.role_key == "admin" %}
+<form class="inline-form" method="post" action="/tickets/{{ ticket.id }}/assignment"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_version" value="{{ ticket.version }}"><label>Assign agent <select name="assignee_id">{% for agent in agents %}<option value="{{ agent.id }}" {% if ticket.assignee_id == agent.id %}selected{% endif %}>{{ agent.email }}</option>{% endfor %}</select></label><button type="submit">Assign</button></form>
+{% endif %}
+{% if can_manage or (ticket.requester_id == principal.user.id and ticket.status in ["resolved", "closed"]) %}
+<section class="command-grid">
+  <form method="post" action="/tickets/{{ ticket.id }}/status"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_version" value="{{ ticket.version }}"><label>Status <select name="status">{% if ticket.status in ["resolved", "closed"] %}<option value="open">Open</option>{% endif %}{% if can_manage %}{% for value in ["open", "in_progress", "waiting_for_user", "resolved", "closed"] if value != ticket.status %}<option value="{{ value }}">{{ value|replace("_", " ")|title }}</option>{% endfor %}{% endif %}</select></label><button type="submit">Change</button></form>
+  {% if can_manage %}<form method="post" action="/tickets/{{ ticket.id }}/priority"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_version" value="{{ ticket.version }}"><label>Priority <select name="priority">{% for value in ["low", "medium", "high", "critical"] if value != ticket.priority %}<option value="{{ value }}">{{ value|title }}</option>{% endfor %}</select></label><button type="submit">Change</button></form>
+  <form method="post" action="/tickets/{{ ticket.id }}/category"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_version" value="{{ ticket.version }}"><label>Category <select name="category_id">{% for category in categories if category.is_active and category.id != ticket.category_id %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</select></label><button type="submit">Change</button></form>{% endif %}
+</section>{% endif %}
+
+<section class="split">
+<div class="card"><h2>Public comments</h2>{% for comment in comments %}<article class="entry"><p>{{ comment.body }}</p><small>{{ comment.created_at }} · {{ comment.author_id }}</small></article>{% else %}<p>No comments yet.</p>{% endfor %}<form method="post" action="/tickets/{{ ticket.id }}/comments"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Add public comment <textarea name="body" maxlength="10000" required></textarea></label><button type="submit">Comment</button></form></div>
+{% if principal.user.role_key in ["agent", "admin"] %}<div class="card private"><h2>Private internal notes</h2>{% for note in internal_notes %}<article class="entry"><p>{{ note.body }}</p><small>{{ note.created_at }} · {{ note.author_id }}</small></article>{% else %}<p>No internal notes.</p>{% endfor %}<form method="post" action="/tickets/{{ ticket.id }}/internal-notes"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Add private note <textarea name="body" maxlength="10000" required></textarea></label><button type="submit">Add private note</button></form></div>{% endif %}
+</section>
+<section class="card"><h2>Activity</h2><ol class="activity">{% for item in activity %}<li><strong>{{ item.event_type }}</strong> · {{ item.created_at }}</li>{% endfor %}</ol></section>
+{% endblock %}

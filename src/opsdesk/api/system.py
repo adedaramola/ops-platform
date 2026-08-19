@@ -8,7 +8,7 @@ from opsdesk.core.config import get_settings
 from opsdesk.db.session import get_engine
 
 router = APIRouter(tags=["system"])
-EXPECTED_MIGRATION = "0001_core_auth"
+EXPECTED_MIGRATION = "0002_ticket_domain"
 
 
 def _database_ready() -> bool:

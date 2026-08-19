@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}OpsDesk{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+    <script defer src="https://unpkg.com/htmx.org@2.0.4"></script>
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="/">OpsDesk</a>
+      {% if principal is defined and principal %}<nav><a href="/tickets">Tickets</a>{% if principal.user.role_key == "admin" %}<a href="/admin">Admin</a>{% endif %}<a href="/account">Account</a></nav>{% endif %}
     </header>
-    <main class="container">
+    <main class="container" hx-boost="true">
       {% block content %}{% endblock %}
     </main>
   </body>

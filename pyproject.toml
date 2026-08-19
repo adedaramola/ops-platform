@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opsdesk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Production-minded support ticket and knowledge management application"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -11,9 +11,9 @@ from opsdesk.db.models import User
 from opsdesk.db.session import get_session_factory
 
 SEED_USERS = (
-    ("demo-user@opsdesk.local", "user", "seed_user_password"),
-    ("demo-agent@opsdesk.local", "agent", "seed_agent_password"),
-    ("demo-admin@opsdesk.local", "admin", "seed_admin_password"),
+    ("demo-user@opsdesk.example.com", "user", "seed_user_password"),
+    ("demo-agent@opsdesk.example.com", "agent", "seed_agent_password"),
+    ("demo-admin@opsdesk.example.com", "admin", "seed_admin_password"),
 )
 
 

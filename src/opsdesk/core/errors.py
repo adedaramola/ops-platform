@@ -35,3 +35,13 @@ class CsrfError(AppError):
 class RateLimitError(AppError):
     def __init__(self) -> None:
         super().__init__("RATE_LIMIT_EXCEEDED", "Too many attempts; try again later", 429)
+
+
+class NotFoundError(AppError):
+    def __init__(self, message: str = "The requested resource was not found") -> None:
+        super().__init__("NOT_FOUND", message, 404)
+
+
+class WorkflowError(AppError):
+    def __init__(self, message: str) -> None:
+        super().__init__("WORKFLOW_RULE_VIOLATION", message, 422)

@@ -73,6 +73,8 @@ def configure_logging(settings: Settings) -> None:
         framework_logger.handlers.clear()
         framework_logger.propagate = True
         framework_logger.disabled = logger_name == "uvicorn.access"
+    for logger_name in ("httpx", "httpcore"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
     logging.captureWarnings(True)
 
     structlog.configure(

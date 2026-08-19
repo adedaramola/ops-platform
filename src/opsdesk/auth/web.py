@@ -48,7 +48,7 @@ def _render_auth_form(
 
 @router.get("/", include_in_schema=False)
 def home(principal: OptionalPrincipal) -> RedirectResponse:
-    return RedirectResponse("/account" if principal is not None else "/login")
+    return RedirectResponse("/tickets" if principal is not None else "/login")
 
 
 @router.get("/register", response_class=HTMLResponse)

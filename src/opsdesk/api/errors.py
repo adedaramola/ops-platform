@@ -5,10 +5,34 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from opsdesk.core.errors import AppError, AuthorizationError
 from opsdesk.observability.logging import get_logger
 from opsdesk.observability.middleware import get_request_id
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    request_id: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
+
+
+OPENAPI_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    code: {"model": ErrorResponse, "description": description}
+    for code, description in {
+        401: "Authentication required",
+        403: "Authorization or CSRF validation failed",
+        404: "Resource not found",
+        409: "Optimistic-concurrency or uniqueness conflict",
+        422: "Validation or workflow rule failed",
+        429: "Rate limit exceeded",
+    }.items()
+}
 
 
 def _payload(code: str, message: str, request_id: str) -> dict[str, Any]:

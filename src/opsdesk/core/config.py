@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     service_name: str = "opsdesk"
     environment: Literal["development", "test", "staging", "production"] = "development"
-    version: str = "0.1.0"
+    version: str = "0.2.0"
     log_level: str = "INFO"
     database_url: str = "postgresql+psycopg://opsdesk:opsdesk_dev_only@localhost:5433/opsdesk_db"
     csrf_secret_key: SecretStr = SecretStr("development-only-change-me")

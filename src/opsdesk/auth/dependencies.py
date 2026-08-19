@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Security
+from fastapi.security import APIKeyCookie
 from sqlalchemy.orm import Session
 
 from opsdesk.auth.service import AuthPrincipal, AuthService
@@ -12,6 +13,8 @@ from opsdesk.db.session import get_db_session
 
 DatabaseSession = Annotated[Session, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
+session_cookie_scheme = APIKeyCookie(name="opsdesk_session", auto_error=False)
+DeclaredSessionCookie = Annotated[str | None, Security(session_cookie_scheme)]
 
 
 def get_auth_service(db: DatabaseSession, settings: AppSettings) -> AuthService:
@@ -22,9 +25,12 @@ AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]
 
 
 def get_optional_principal(
-    request: Request, auth_service: AuthServiceDependency, settings: AppSettings
+    request: Request,
+    auth_service: AuthServiceDependency,
+    settings: AppSettings,
+    declared_session_cookie: DeclaredSessionCookie,
 ) -> AuthPrincipal | None:
-    raw_token = request.cookies.get(settings.session_cookie_name)
+    raw_token = request.cookies.get(settings.session_cookie_name) or declared_session_cookie
     if not raw_token:
         return None
     try:

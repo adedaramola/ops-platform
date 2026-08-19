@@ -63,7 +63,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self'; img-src 'self' data:; "
-            "script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            "script-src 'self' https://unpkg.com; frame-ancestors 'none'; "
+            "base-uri 'self'; form-action 'self'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"

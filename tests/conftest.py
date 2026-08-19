@@ -20,6 +20,8 @@ from opsdesk.core.config import get_settings
 from opsdesk.db.session import clear_database_caches, get_engine
 from opsdesk.main import create_app
 
+pytest_plugins = ["tests.phase3_helpers"]
+
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
@@ -37,13 +39,25 @@ def clean_database(request: pytest.FixtureRequest) -> Generator[None, None, None
             revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
     except SQLAlchemyError as error:
         pytest.fail(f"PostgreSQL test database is unavailable: {error}")
-    if revision != "0001_core_auth":
-        pytest.fail(f"Expected migration 0001_core_auth, found {revision!r}")
+    if revision != "0002_ticket_domain":
+        pytest.fail(f"Expected migration 0002_ticket_domain, found {revision!r}")
     with get_engine().begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE TABLE audit_events, sessions, login_throttles, users "
+                "TRUNCATE TABLE ticket_activities, internal_notes, comments, tickets, "
+                "audit_events, sessions, login_throttles, users "
                 "RESTART IDENTITY CASCADE"
+            )
+        )
+        connection.execute(text("ALTER SEQUENCE ticket_number_seq RESTART WITH 1"))
+        connection.execute(
+            text("DELETE FROM categories WHERE id <> '00000000-0000-0000-0000-000000000001'")
+        )
+        connection.execute(
+            text(
+                "UPDATE categories SET name = 'General', "
+                "description = 'General support requests', is_active = true "
+                "WHERE id = '00000000-0000-0000-0000-000000000001'"
             )
         )
     yield
