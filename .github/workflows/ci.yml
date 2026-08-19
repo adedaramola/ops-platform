@@ -30,8 +30,8 @@ jobs:
       OPS_CSRF_SECRET_KEY: ci-only-csrf-secret-not-for-production
       OPS_SESSION_COOKIE_SECURE: "false"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -55,7 +55,7 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Validate Compose profiles
         run: docker compose --profile observability --profile demo config --quiet
       - name: Build production image
