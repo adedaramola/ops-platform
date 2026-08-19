@@ -26,6 +26,29 @@ from opsdesk.web.templates import templates
 
 router = APIRouter(tags=["browser"])
 
+PASSWORD_REQUIREMENTS = (
+    "Password must be at least 12 characters and include at least three of: "
+    "lowercase letters, uppercase letters, numbers, and symbols."
+)
+
+
+def _public_csrf_token(request: Request, settings: AppSettings) -> str:
+    manager = get_csrf_manager()
+    current_token = request.cookies.get(settings.csrf_cookie_name, "")
+    if current_token and manager.validate(current_token):
+        return current_token
+    return manager.issue()
+
+
+def _registration_validation_message(error: ValidationError) -> str:
+    invalid_fields = {str(item["loc"][-1]) for item in error.errors() if item["loc"]}
+    messages: list[str] = []
+    if "email" in invalid_fields:
+        messages.append("Enter a valid email address.")
+    if "password" in invalid_fields:
+        messages.append(PASSWORD_REQUIREMENTS)
+    return " ".join(messages) or "Registration details are invalid."
+
 
 def _render_auth_form(
     *,
@@ -33,13 +56,15 @@ def _render_auth_form(
     settings: AppSettings,
     template_name: str,
     error: str | None = None,
+    notice: str | None = None,
+    email: str = "",
     status_code: int = 200,
 ) -> Response:
-    token = get_csrf_manager().issue()
+    token = _public_csrf_token(request, settings)
     response = templates.TemplateResponse(
         request=request,
         name=template_name,
-        context={"error": error, "csrf_token": token},
+        context={"error": error, "notice": notice, "email": email, "csrf_token": token},
         status_code=status_code,
     )
     set_csrf_cookie(response, settings, token)
@@ -71,13 +96,16 @@ def register_submit(
         auth_service.register(payload.email, payload.password, get_request_id(request))
     except (AppError, ValidationError) as error:
         message = (
-            error.message if isinstance(error, AppError) else "Registration details are invalid"
+            error.message
+            if isinstance(error, AppError)
+            else _registration_validation_message(error)
         )
         return _render_auth_form(
             request=request,
             settings=settings,
             template_name="auth/register.html",
             error=message,
+            email=email,
             status_code=getattr(error, "status_code", status.HTTP_422_UNPROCESSABLE_ENTITY),
         )
     return RedirectResponse("/login?registered=1", status_code=status.HTTP_303_SEE_OTHER)
@@ -85,7 +113,17 @@ def register_submit(
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, settings: AppSettings) -> Response:
-    return _render_auth_form(request=request, settings=settings, template_name="auth/login.html")
+    notice = (
+        "Account created. Sign in with your new credentials."
+        if request.query_params.get("registered") == "1"
+        else None
+    )
+    return _render_auth_form(
+        request=request,
+        settings=settings,
+        template_name="auth/login.html",
+        notice=notice,
+    )
 
 
 @router.post("/login", response_class=HTMLResponse)

@@ -4,6 +4,7 @@
 <section class="card">
   <h1>Sign in</h1>
   <p>Access your OpsDesk account.</p>
+  {% if notice %}<div class="notice" role="status">{{ notice }}</div>{% endif %}
   {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/login">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

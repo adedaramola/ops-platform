@@ -29,6 +29,10 @@ def test_browser_registration_login_and_logout(client: TestClient) -> None:
         follow_redirects=False,
     )
     assert register_response.status_code == 303
+    assert register_response.headers["location"] == "/login?registered=1"
+
+    registration_notice = client.get(register_response.headers["location"])
+    assert "Account created. Sign in with your new credentials." in registration_notice.text
 
     login_page = client.get("/login")
     login_response = client.post(
@@ -66,3 +70,36 @@ def test_browser_form_rejects_invalid_csrf(client: TestClient) -> None:
     )
     assert response.status_code == 403
     assert "form security token is invalid" in response.text
+
+
+def test_browser_registration_explains_password_policy_and_allows_retry(
+    client: TestClient,
+) -> None:
+    register_page = client.get("/register")
+    token = form_token(register_page.text)
+
+    invalid_response = client.post(
+        "/register",
+        data={
+            "email": "retry@example.com",
+            "password": "alllowercase",
+            "csrf_token": token,
+        },
+    )
+
+    assert invalid_response.status_code == 422
+    assert "lowercase letters, uppercase letters, numbers, and symbols" in invalid_response.text
+    assert 'value="retry@example.com"' in invalid_response.text
+    assert "alllowercase" not in invalid_response.text
+    assert form_token(invalid_response.text) == token
+
+    retry_response = client.post(
+        "/register",
+        data={
+            "email": "retry@example.com",
+            "password": PASSWORD,
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+    assert retry_response.status_code == 303

@@ -18,6 +18,7 @@ input, select, textarea { width: 100%; padding: .8rem; border: 1px solid #475569
 button { margin-top: .5rem; padding: .8rem 1rem; border: 0; border-radius: .5rem; background: #0284c7; color: white; font-weight: 700; cursor: pointer; }
 button.secondary { background: #475569; }
 .alert { margin: 1rem 0; padding: .8rem; border: 1px solid #f87171; border-radius: .5rem; background: #7f1d1d55; }
+.notice { margin: 1rem 0; padding: .8rem; border: 1px solid #4ade80; border-radius: .5rem; background: #14532d55; }
 a { color: #7dd3fc; }
 dl { display: grid; grid-template-columns: 8rem 1fr; gap: .75rem; }
 dd { margin: 0; }
