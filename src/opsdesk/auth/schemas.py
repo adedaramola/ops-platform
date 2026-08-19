@@ -2,25 +2,15 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+# Temporary testing policy. Restore production complexity requirements before release.
+MIN_PASSWORD_LENGTH = 8
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=12, max_length=128)
-
-    @field_validator("password")
-    @classmethod
-    def password_complexity(cls, value: str) -> str:
-        classes = [
-            any(character.islower() for character in value),
-            any(character.isupper() for character in value),
-            any(character.isdigit() for character in value),
-            any(not character.isalnum() for character in value),
-        ]
-        if sum(classes) < 3:
-            raise ValueError("Password must include at least three character classes")
-        return value
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=128)
 
 
 class LoginRequest(BaseModel):

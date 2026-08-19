@@ -18,7 +18,7 @@ from opsdesk.auth.http import (
     set_session_cookie,
     validate_csrf,
 )
-from opsdesk.auth.schemas import RegisterRequest
+from opsdesk.auth.schemas import MIN_PASSWORD_LENGTH, RegisterRequest
 from opsdesk.auth.security import get_csrf_manager
 from opsdesk.core.errors import AppError
 from opsdesk.observability.middleware import get_request_id
@@ -26,10 +26,7 @@ from opsdesk.web.templates import templates
 
 router = APIRouter(tags=["browser"])
 
-PASSWORD_REQUIREMENTS = (
-    "Password must be at least 12 characters and include at least three of: "
-    "lowercase letters, uppercase letters, numbers, and symbols."
-)
+PASSWORD_REQUIREMENTS = f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
 
 def _public_csrf_token(request: Request, settings: AppSettings) -> str:
@@ -64,7 +61,13 @@ def _render_auth_form(
     response = templates.TemplateResponse(
         request=request,
         name=template_name,
-        context={"error": error, "notice": notice, "email": email, "csrf_token": token},
+        context={
+            "error": error,
+            "notice": notice,
+            "email": email,
+            "csrf_token": token,
+            "password_min_length": MIN_PASSWORD_LENGTH,
+        },
         status_code=status_code,
     )
     set_csrf_cookie(response, settings, token)

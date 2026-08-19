@@ -3,14 +3,14 @@
 {% block content %}
 <section class="card">
   <h1>Create an account</h1>
-  <p id="password-requirements">Use at least 12 characters and include at least three of: lowercase letters, uppercase letters, numbers, and symbols.</p>
+  <p id="password-requirements">Use at least {{ password_min_length }} characters.</p>
   {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/register">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label for="email">Email</label>
     <input id="email" name="email" type="email" autocomplete="email" required maxlength="320" value="{{ email }}">
     <label for="password">Password</label>
-    <input id="password" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128" aria-describedby="password-requirements">
+    <input id="password" name="password" type="password" autocomplete="new-password" required minlength="{{ password_min_length }}" maxlength="128" aria-describedby="password-requirements">
     <button type="submit">Register</button>
   </form>
   <p><a href="/login">Already have an account?</a></p>
