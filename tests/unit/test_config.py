@@ -38,6 +38,7 @@ def test_production_rejects_development_database_credentials() -> None:
     with pytest.raises(ValidationError, match="Development database credentials"):
         Settings(
             environment="production",
+            database_url=("postgresql+psycopg://opsdesk:opsdesk_dev_only@database:5432/opsdesk_db"),
             session_cookie_secure=True,
             csrf_secret_key=SecretStr("a-real-secret"),
         )
