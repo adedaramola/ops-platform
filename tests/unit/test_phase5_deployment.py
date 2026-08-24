@@ -51,12 +51,16 @@ def test_migration_job_is_separate_and_bounded() -> None:
     pod_spec = job["spec"]["template"]["spec"]
     container = pod_spec["containers"][0]
 
-    assert job["metadata"]["name"] == "opsdesk-migrate-v0002"
+    assert job["metadata"]["name"] == "opsdesk-migrate-v0004"
     assert job["spec"]["backoffLimit"] == 2
     assert job["spec"]["activeDeadlineSeconds"] == 300
     assert pod_spec["serviceAccountName"] == "opsdesk-migrator"
     assert pod_spec["automountServiceAccountToken"] is False
     assert container["command"][-2:] == ["upgrade", "head"]
+    assert {item["name"]: item["value"] for item in container["env"]}["OPS_AI_ENABLED"] == (
+        "false"
+    )
+    assert container["envFrom"][1]["secretRef"]["name"] == "opsdesk-migration"
     assert container["securityContext"]["readOnlyRootFilesystem"] is True
 
 
@@ -69,5 +73,50 @@ def test_production_config_disables_dangerous_optional_workloads() -> None:
     assert data["OPS_ENABLE_CONTROLLED_FAILURES"] == "false"
     assert data["OPS_TRAFFIC_ENABLED"] == "false"
     assert data["OPS_OTEL_ENABLED"] == "false"
+    assert data["OPS_AI_ENABLED"] == "false"
     assert "OPS_DATABASE_URL" not in data
     assert "OPS_CSRF_SECRET_KEY" not in data
+
+
+def test_phase7_agent_is_cpu_only_and_has_no_database_credentials() -> None:
+    deployment = _document(KUBERNETES / "ai" / "agent-deployment.yaml")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    container = pod_spec["containers"][0]
+
+    assert deployment["spec"]["replicas"] == 1
+    assert pod_spec["serviceAccountName"] == "opsdesk-agent"
+    assert container["resources"]["limits"]["cpu"] == "250m"
+    assert "nvidia.com/gpu" not in container["resources"]["limits"]
+    assert {item["configMapRef"]["name"] for item in container["envFrom"]} == {
+        "opsdesk-agent-runtime"
+    }
+    assert all("secretRef" not in item for item in container["envFrom"])
+    secret_keys = {
+        item["valueFrom"]["secretKeyRef"]["key"] for item in container["env"] if "valueFrom" in item
+    }
+    assert secret_keys == {"OPS_AI_INTERNAL_TOKEN"}
+    assert "OPS_DATABASE_URL" not in {item["name"] for item in container["env"]}
+
+
+def test_phase8_agent_routes_through_gateway_without_shared_cache() -> None:
+    config_map = _document(KUBERNETES / "ai" / "runtime-configmap.yaml")
+    data = config_map["data"]
+
+    assert data["OPS_AGENT_REQUEST_TIMEOUT_SECONDS"] == "25"
+    assert data["OPS_AGENT_LLM_GATEWAY_ENABLED"] == "true"
+    assert data["OPS_AGENT_LLM_GATEWAY_BASE_URL"] == "REPLACE_WITH_LLM_GATEWAY_URL"
+    assert (
+        data["OPS_AGENT_LLM_GATEWAY_API_KEY_SECRET_ARN"]
+        == "REPLACE_WITH_LLM_GATEWAY_SECRET_ARN"
+    )
+    assert data["OPS_AGENT_LLM_GATEWAY_CACHE_POLICY"] == "off"
+
+
+def test_phase7_outbox_dispatcher_is_bounded_and_separate_from_agent() -> None:
+    cronjob = _document(KUBERNETES / "ai" / "dispatcher-cronjob.yaml")
+    job_spec = cronjob["spec"]["jobTemplate"]["spec"]
+    container = job_spec["template"]["spec"]["containers"][0]
+
+    assert cronjob["spec"]["concurrencyPolicy"] == "Forbid"
+    assert job_spec["activeDeadlineSeconds"] == 50
+    assert container["command"] == ["opsdesk-ai-dispatch"]

@@ -37,3 +37,4 @@ seed:
 manifests:
 	kubectl kustomize deploy/kubernetes/base >/dev/null
 	kubectl kustomize deploy/kubernetes/base/migration >/dev/null
+	kubectl kustomize deploy/kubernetes/ai >/dev/null

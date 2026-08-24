@@ -11,6 +11,8 @@ from opentelemetry.sdk.trace.export import SpanExporter
 
 from opsdesk.admin.api import router as admin_api_router
 from opsdesk.admin.web import router as admin_web_router
+from opsdesk.ai.api import internal_router as ai_internal_router
+from opsdesk.ai.api import router as ai_router
 from opsdesk.api.errors import OPENAPI_ERROR_RESPONSES, register_exception_handlers
 from opsdesk.api.system import router as system_router
 from opsdesk.auth.api import router as auth_api_router
@@ -81,6 +83,8 @@ def create_app(
     app.include_router(dashboard_router)
     app.include_router(user_api_router)
     app.include_router(admin_api_router)
+    app.include_router(ai_router)
+    app.include_router(ai_internal_router)
     app.include_router(auth_web_router)
     app.include_router(ticket_web_router)
     app.include_router(admin_web_router)

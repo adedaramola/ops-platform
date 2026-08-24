@@ -15,6 +15,9 @@ os.environ.setdefault(
 )
 os.environ.setdefault("OPS_CSRF_SECRET_KEY", "test-secret-key-with-sufficient-entropy")
 os.environ.setdefault("OPS_SESSION_COOKIE_SECURE", "false")
+os.environ.setdefault("OPS_AI_ENABLED", "true")
+os.environ.setdefault("OPS_AI_DISPATCH_MODE", "memory")
+os.environ.setdefault("OPS_AI_INTERNAL_TOKEN", "test-agent-service-token")
 
 from opsdesk.core.config import get_settings
 from opsdesk.db.session import clear_database_caches, get_engine
@@ -39,12 +42,13 @@ def clean_database(request: pytest.FixtureRequest) -> Generator[None, None, None
             revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
     except SQLAlchemyError as error:
         pytest.fail(f"PostgreSQL test database is unavailable: {error}")
-    if revision != "0002_ticket_domain":
-        pytest.fail(f"Expected migration 0002_ticket_domain, found {revision!r}")
+    if revision != "0004_gateway_usage":
+        pytest.fail(f"Expected migration 0004_gateway_usage, found {revision!r}")
     with get_engine().begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE TABLE ticket_activities, internal_notes, comments, tickets, "
+                "TRUNCATE TABLE ai_review_events, ai_suggestions, ai_outbox_events, "
+                "ai_workflows, ticket_activities, internal_notes, comments, tickets, "
                 "audit_events, sessions, login_throttles, users "
                 "RESTART IDENTITY CASCADE"
             )

@@ -1,16 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Create ticket · OpsDesk{% endblock %}
 {% block content %}
+<a class="breadcrumb" href="/tickets">← Back to tickets</a>
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">New request</p>
+    <h1>Create a support ticket</h1>
+    <p>Share enough context for the support team to act quickly.</p>
+  </div>
+</section>
 <section class="card">
-  <h1>Create a support ticket</h1>
   {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/tickets">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>Title <input name="title" minlength="3" maxlength="200" required></label>
-    <label>Description <textarea name="description" maxlength="20000" rows="8" required></textarea></label>
-    <label>Category <select name="category_id" required>{% for category in categories if category.is_active %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</select></label>
-    <label>Priority <select name="priority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select></label>
-    <button type="submit">Create ticket</button>
+    <div class="form-grid">
+      <label class="span-2">Title
+        <input name="title" minlength="3" maxlength="200" placeholder="Briefly summarize the issue" required>
+      </label>
+      <label class="span-2">Description
+        <textarea name="description" maxlength="20000" rows="8" placeholder="What happened, what did you expect, and what have you tried?" required></textarea>
+      </label>
+      <label>Category
+        <select name="category_id" required>{% for category in categories if category.is_active %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</select>
+      </label>
+      <label>Priority
+        <select name="priority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select>
+      </label>
+    </div>
+    <div class="form-actions"><button type="submit">Create ticket</button><a class="button secondary" href="/tickets">Cancel</a></div>
   </form>
 </section>
 {% endblock %}

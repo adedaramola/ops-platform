@@ -12,7 +12,7 @@ from sqlalchemy.exc import ArgumentError
 class Settings(BaseSettings):
     service_name: str = "opsdesk"
     environment: Literal["development", "test", "staging", "production"] = "development"
-    version: str = "0.4.0"
+    version: str = "0.6.0"
     log_level: str = "INFO"
     database_url: SecretStr = SecretStr(
         "postgresql+psycopg://opsdesk:opsdesk_dev_only@localhost:5433/opsdesk_db"
@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     traffic_request_timeout_seconds: float = 5.0
     traffic_controlled_outcomes: bool = True
     traffic_controlled_failures: bool = False
+    ai_enabled: bool = False
+    ai_dispatch_mode: Literal["disabled", "memory", "sqs"] = "disabled"
+    ai_queue_url: str | None = None
+    ai_internal_token: SecretStr = SecretStr("development-agent-token-change-me")
+    ai_workflow_deadline_seconds: int = 120
+    ai_outbox_poll_seconds: float = 2.0
 
     model_config = SettingsConfigDict(
         env_prefix="OPS_",
@@ -111,6 +117,20 @@ class Settings(BaseSettings):
             raise ValueError("Traffic duration must be between 0.1 and 86400 seconds")
         if self.traffic_request_timeout_seconds <= 0:
             raise ValueError("Traffic request timeout must be positive")
+        if not 10 <= self.ai_workflow_deadline_seconds <= 900:
+            raise ValueError("AI workflow deadline must be between 10 and 900 seconds")
+        if not 0.25 <= self.ai_outbox_poll_seconds <= 60:
+            raise ValueError("AI outbox poll interval must be between 0.25 and 60 seconds")
+        if self.ai_enabled and self.ai_dispatch_mode == "disabled":
+            raise ValueError("AI dispatch mode must be configured when AI is enabled")
+        if self.ai_dispatch_mode == "sqs" and not self.ai_queue_url:
+            raise ValueError("AI queue URL is required for SQS dispatch")
+        if (
+            self.environment in {"staging", "production"}
+            and self.ai_enabled
+            and self.ai_internal_token.get_secret_value() == "development-agent-token-change-me"
+        ):
+            raise ValueError("A unique Agent service token is required when AI is enabled")
         return self
 
     @property
