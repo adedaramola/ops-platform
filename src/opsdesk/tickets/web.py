@@ -7,6 +7,7 @@ from fastapi import APIRouter, Form, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
+from opsdesk.ai.dependencies import AiServiceDependency
 from opsdesk.auth.dependencies import AppSettings, CurrentPrincipal
 from opsdesk.auth.http import set_csrf_cookie, validate_csrf
 from opsdesk.auth.security import get_csrf_manager
@@ -133,9 +134,13 @@ def ticket_detail_page(
     principal: CurrentPrincipal,
     service: TicketServiceDependency,
     category_service: CategoryServiceDependency,
+    ai_service: AiServiceDependency,
 ) -> Response:
     ticket = service.get(principal, ticket_id)
     token = get_csrf_manager().issue(principal.session.csrf_secret)
+    can_manage = principal.user.role_key == "admin" or (
+        principal.user.role_key == "agent" and ticket.assignee_id == principal.user.id
+    )
     response = templates.TemplateResponse(
         request=request,
         name="tickets/detail.html",
@@ -151,12 +156,86 @@ def ticket_detail_page(
             ),
             "categories": category_service.list(principal),
             "agents": service.assignable_agents(principal),
-            "can_manage": principal.user.role_key == "admin"
-            or (principal.user.role_key == "agent" and ticket.assignee_id == principal.user.id),
+            "can_manage": can_manage,
+            "ai_enabled": settings.ai_enabled,
+            "ai_workflows": (
+                [
+                    ai_service.response(workflow)
+                    for workflow in ai_service.list_ticket_workflows(principal, ticket_id)
+                ]
+                if can_manage
+                else []
+            ),
             "csrf_token": token,
         },
     )
     return _set_csrf_cookie(response, settings, token)
+
+
+@router.post("/tickets/{ticket_id}/ai-suggestions")
+def ai_suggestion_submit(
+    ticket_id: uuid.UUID,
+    request: Request,
+    settings: AppSettings,
+    principal: CurrentPrincipal,
+    service: AiServiceDependency,
+    csrf_token: Annotated[str, Form(min_length=1, max_length=256)],
+) -> RedirectResponse:
+    validate_csrf(request, csrf_token, settings, principal)
+    service.request_suggestion(
+        principal,
+        ticket_id,
+        "draft_public_response",
+        None,
+        get_request_id(request),
+    )
+    return _ticket_redirect(ticket_id)
+
+
+@router.post("/tickets/{ticket_id}/ai-suggestions/{suggestion_id}/approve")
+def ai_suggestion_approve_submit(
+    ticket_id: uuid.UUID,
+    suggestion_id: uuid.UUID,
+    request: Request,
+    settings: AppSettings,
+    principal: CurrentPrincipal,
+    service: AiServiceDependency,
+    content: Annotated[str, Form(min_length=1, max_length=10_000)],
+    csrf_token: Annotated[str, Form(min_length=1, max_length=256)],
+) -> RedirectResponse:
+    validate_csrf(request, csrf_token, settings, principal)
+    service.approve(principal, suggestion_id, content, get_request_id(request))
+    return _ticket_redirect(ticket_id)
+
+
+@router.post("/tickets/{ticket_id}/ai-suggestions/{suggestion_id}/reject")
+def ai_suggestion_reject_submit(
+    ticket_id: uuid.UUID,
+    suggestion_id: uuid.UUID,
+    request: Request,
+    settings: AppSettings,
+    principal: CurrentPrincipal,
+    service: AiServiceDependency,
+    csrf_token: Annotated[str, Form(min_length=1, max_length=256)],
+) -> RedirectResponse:
+    validate_csrf(request, csrf_token, settings, principal)
+    service.reject(principal, suggestion_id, get_request_id(request))
+    return _ticket_redirect(ticket_id)
+
+
+@router.post("/tickets/{ticket_id}/ai-suggestions/{suggestion_id}/apply")
+def ai_suggestion_apply_submit(
+    ticket_id: uuid.UUID,
+    suggestion_id: uuid.UUID,
+    request: Request,
+    settings: AppSettings,
+    principal: CurrentPrincipal,
+    service: AiServiceDependency,
+    csrf_token: Annotated[str, Form(min_length=1, max_length=256)],
+) -> RedirectResponse:
+    validate_csrf(request, csrf_token, settings, principal)
+    service.apply(principal, suggestion_id, get_request_id(request))
+    return _ticket_redirect(ticket_id)
 
 
 @router.post("/tickets/{ticket_id}/comments")

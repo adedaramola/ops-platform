@@ -126,6 +126,10 @@ pipeline must wait for Alembic before rolling out OpsDesk.
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the image contract, required runtime secrets, external
 PostgreSQL configuration, manifest layout, rollout order, and rollback rules.
 
+For the current cross-repository AWS checkpoint and a copy-paste continuation prompt, see
+[HANDOFF_PROMPT.md](HANDOFF_PROMPT.md). Live pause/resume operations are owned by the EKS platform
+repository's `deploy/opsdesk/OPERATIONS.md` runbook.
+
 ## Optional development accounts
 
 Seed accounts are disabled by default. To enable them locally, set all of the following in `.env`:

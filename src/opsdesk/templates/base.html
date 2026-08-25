@@ -3,17 +3,40 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#ffffff">
     <title>{% block title %}OpsDesk{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+    <link rel="stylesheet" href="/static/css/app.css">
     <script defer src="https://unpkg.com/htmx.org@2.0.4"></script>
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="/">OpsDesk</a>
-      {% if principal is defined and principal %}<nav><a href="/tickets">Tickets</a>{% if principal.user.role_key == "admin" %}<a href="/admin">Admin</a>{% endif %}<a href="/account">Account</a></nav>{% endif %}
+    <header class="app-header">
+      <div class="shell header-inner">
+        <a class="brand" href="/" aria-label="OpsDesk home">
+          <span class="brand-mark" aria-hidden="true">O</span>
+          <span class="brand-copy">OpsDesk <small>Support operations</small></span>
+        </a>
+        {% if principal is defined and principal %}
+        <nav class="primary-nav" aria-label="Primary navigation">
+          <a class="nav-link{% if request.url.path.startswith('/tickets') %} is-active{% endif %}" href="/tickets">Tickets</a>
+          {% if principal.user.role_key == "admin" %}<a class="nav-link{% if request.url.path.startswith('/admin') %} is-active{% endif %}" href="/admin">Administration</a>{% endif %}
+        </nav>
+        <div class="header-actions">
+          <a class="user-chip" href="/account" aria-label="Open account settings">
+            <span class="user-avatar" aria-hidden="true">{{ principal.user.email[0] }}</span>
+            <span>{{ principal.user.role_key|title }}</span>
+          </a>
+        </div>
+        {% else %}
+        <div class="header-actions">
+          <a class="nav-link" href="/login">Sign in</a>
+          <a class="button" href="/register">Create account</a>
+        </div>
+        {% endif %}
+      </div>
     </header>
-    <main class="container" hx-boost="true">
+    <main class="shell app-main" hx-boost="true">
       {% block content %}{% endblock %}
     </main>
+    <footer class="shell app-footer">OpsDesk · Secure support operations</footer>
   </body>
 </html>

@@ -5,6 +5,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from opsdesk.ai import models as _ai_models  # noqa: F401
 from opsdesk.categories import models as _category_models  # noqa: F401
 from opsdesk.core.config import get_settings
 from opsdesk.db import models as _auth_models  # noqa: F401

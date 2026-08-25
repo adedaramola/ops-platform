@@ -18,7 +18,7 @@ def form_token(response_text: str) -> str:
 def test_browser_registration_login_and_logout(client: TestClient) -> None:
     register_page = client.get("/register")
     assert register_page.status_code == 200
-    assert "Create an account" in register_page.text
+    assert "Create account" in register_page.text
     register_response = client.post(
         "/register",
         data={

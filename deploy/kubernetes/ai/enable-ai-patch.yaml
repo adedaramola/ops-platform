@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opsdesk-runtime
+  namespace: opsdesk
+data:
+  OPS_AI_ENABLED: "true"
+  OPS_AI_DISPATCH_MODE: sqs
+  OPS_AI_QUEUE_URL: REPLACE_WITH_AI_QUEUE_URL
+  OPS_AI_WORKFLOW_DEADLINE_SECONDS: "120"

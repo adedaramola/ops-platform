@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: opsdesk-ai-dispatcher
+  namespace: opsdesk
+  labels:
+    app.kubernetes.io/name: opsdesk
+    app.kubernetes.io/component: ai-dispatcher
+    app.kubernetes.io/part-of: opsdesk
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 50
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: opsdesk
+            app.kubernetes.io/component: ai-dispatcher
+            app.kubernetes.io/part-of: opsdesk
+        spec:
+          restartPolicy: Never
+          serviceAccountName: opsdesk-ai-dispatcher
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: dispatcher
+              image: opsdesk:0.6.0
+              imagePullPolicy: IfNotPresent
+              command:
+                - opsdesk-ai-dispatch
+              envFrom:
+                - configMapRef:
+                    name: opsdesk-runtime
+                - secretRef:
+                    name: opsdesk-runtime
+              env:
+                - name: TMPDIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 150m
+                  memory: 192Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 16Mi

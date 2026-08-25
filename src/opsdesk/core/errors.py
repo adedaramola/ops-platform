@@ -45,3 +45,8 @@ class NotFoundError(AppError):
 class WorkflowError(AppError):
     def __init__(self, message: str) -> None:
         super().__init__("WORKFLOW_RULE_VIOLATION", message, 422)
+
+
+class ServiceUnavailableError(AppError):
+    def __init__(self, message: str = "The requested service is temporarily unavailable") -> None:
+        super().__init__("SERVICE_UNAVAILABLE", message, 503)
