@@ -1,6 +1,6 @@
 # OpsDesk project status and resume handoff
 
-Last updated: 2026-08-24 (America/New_York)
+Last updated: 2026-08-25 (America/New_York)
 
 ## Working agreements
 
@@ -31,7 +31,7 @@ Last updated: 2026-08-24 (America/New_York)
 
 ## Phase 7 implemented in `ops-platform`
 
-The current uncommitted worktree contains a narrow asynchronous AI response-draft workflow:
+The current feature branch contains a narrow asynchronous AI response-draft workflow:
 
 - Alembic revision `0003_ai_workflows`.
 - Transactional `ai_workflows`, `ai_suggestions`, immutable `ai_review_events`, and durable
@@ -91,22 +91,29 @@ The current uncommitted worktree contains a narrow asynchronous AI response-draf
   was never displayed or written to this repository.
 - Public `/health/ready` returned `{"status":"ready"}` after rollout.
 
-## Shutdown state
+## Current shutdown state
 
-Shutdown was requested on 2026-08-21 and completed without destroying reproducible resources:
+The integrated environment was paused again on 2026-08-24 without destroying reproducible
+resources. The state was verified on 2026-08-25:
 
-- OpsDesk Kubernetes Ingress deleted; the `opsdesk-dev` ALB was confirmed absent.
-- EKS managed node group `platform-afcfc81d5f01fbdf4f4276b29f` set to `minSize=0`,
-  `desiredSize=0`, `maxSize=2`.
-- Kubernetes Deployments `opsdesk` and `opsdesk-agent` were explicitly scaled to zero so the
-  PodDisruptionBudget would not hold the final node. The final EC2 instance was confirmed
-  terminated. Reapplying the manifests restores their declared replica counts.
-- RDS instance `opsdesk-dev` requested to stop; last observed state was `stopping`.
-- Local Docker PostgreSQL container stopped; its volume was preserved.
-- EKS control plane, NAT gateway, ECR images, RDS storage/backups, SQS/DLQ, Route 53, ACM, and
-  Terraform state remain. These cannot be paused like EC2/RDS and still incur baseline cost.
+- OpsDesk Kubernetes Ingress was deleted and ALB `opsdesk-dev` is absent.
+- EKS managed node group `platform-d0c4648a0fe022b5fc2d0572a3` has `minSize=0`,
+  `desiredSize=0`, `maxSize=2`; its Auto Scaling Group has zero instances.
+- Kubernetes Deployments `opsdesk` and `opsdesk-agent` were scaled to zero and the dispatcher
+  CronJob was suspended. Reapplying the reviewed overlays restores declared replicas.
+- RDS instance `opsdesk-dev` is `stopped`; its database and backups are retained.
+- The multi-LLM Lambda gateway remains deployed and available by explicit user decision. Its lean
+  profile has no provisioned concurrency, scheduler, VPC/NAT, Aurora, or ElastiCache.
+- The existing internal Agent token was copied, without being printed or rotated, into the managed
+  `opsdesk/dev/runtime` secret so the Kubernetes Secrets can be recovered after a rebuild.
+- EKS control plane, NAT gateway, ECR images, RDS storage/backups, SQS/DLQ, Route 53, ACM, Secrets
+  Manager, CloudWatch, and Terraform state remain and still incur baseline cost.
 - RDS automatically restarts after AWS's maximum seven-day stop period if it is not manually
   started sooner.
+- Account-neutral clone-to-deploy implementation plus resume/pause are documented in the EKS
+  repository at `deploy/opsdesk/OPERATIONS.md`. Terraform-output-driven overlay configuration,
+  secret recovery, and lifecycle actions are supported by scripts instead of requiring this AWS
+  account's identifiers in a new deployment.
 
 ## Phase 7 live state and pause decision
 
@@ -149,13 +156,14 @@ Shutdown was requested on 2026-08-21 and completed without destroying reproducib
   mode omits the health-checker Lambda entirely, provisions secrets only for enabled providers,
   defaults to Bedrock plus Anthropic, and leaves OpenAI disabled. Low-budget OpsDesk requests now
   have a hard low-tier ceiling, including model-preference and streaming paths.
-- Validation observed on 2026-08-24:
+- Predeployment validation observed on 2026-08-24:
   - multi-LLM full suite: 81 passed, 75.16% coverage; lint and mypy passed;
   - OpsDesk unit suite: 38 passed; lint, format, mypy, offline migration rendering, and AI
     Kubernetes rendering passed;
   - both changed Terraform configurations validated; the lean multi-LLM profile also passed
     formatting, shell syntax, diff-whitespace, and redacted secret-diff checks;
-  - no Terraform plan or apply was run and no AWS resources were changed.
+  - no Terraform plan or apply was run during that validation checkpoint; the reviewed lean
+    deployment and integration applies described below were performed afterward.
 - Multi-LLM lean `dev` deployment completed in AWS account `900009968072`, `us-east-1`, on
   2026-08-24. The reviewed Terraform plan and apply were `37 to add, 0 to change, 0 to destroy`,
   followed by a no-change convergence plan. The public endpoint is
@@ -187,17 +195,30 @@ Shutdown was requested on 2026-08-21 and completed without destroying reproducib
 - The corrected suggestion remains pending for human review and was not posted automatically. The
   work queue and DLQ were both empty after processing.
 
-## Later phases (do not pull into Phase 7)
+## Remaining portfolio phases
 
-- Phase 8: connect the CPU Agent to the existing multi-LLM repository/API; add service
-  authentication, private/off cache policy, structured output, usage/cost capture, resilience, and
-  provider-failure contract tests. Do not create a new gateway.
-- Phase 9: connect the existing independent RAG platform and validate approved-data citations.
-- Phase 10: cross-system tracing, dashboards, alerts, and SLOs.
-- Phase 11: final security/resilience exercises and public portfolio documentation.
+- Phase 9: connect the existing independent RAG platform and validate approved-data citations. The
+  authoritative RAG Git repository must be located or cloned before implementation; the current
+  workspace does not contain it as a Git worktree.
+- Phase 10: finish the EKS observability layer and cross-system tracing, dashboards, alerts, and
+  SLOs across OpsDesk, SQS/Agent, PostgreSQL, and the Lambda gateway.
+- Phase 11: run final security and resilience exercises and produce public portfolio documentation,
+  architecture diagrams, demo instructions, and evidence.
+- Merge the reviewed feature branches into each repository's `main` branch after CI/PR review.
+- Confirm the multi-LLM SNS email subscription. Rotate provider/API keys only when the user begins
+  the next stage; rotation was explicitly deferred.
+- Keep GitOps auto-remediation de-scoped. It is not part of the integrated architecture.
 
-## Repository state warning
+## Saved repository checkpoint
 
-Both repositories have uncommitted work. `ops-platform` contains all Phase 7 application changes.
-`eks-observability-platform` also contained substantial pre-existing uncommitted Phase 6 work before
-the Phase 7 IAM additions. Do not reset, discard, or overwrite either worktree.
+- `ops-platform`: branch `fix/phase5-ci-config-isolation`, integration commit `69f0e73` plus this
+  status/handoff checkpoint.
+- `eks-observability-platform`: branch `phase6/rds-log-privacy`, portable implementation checkpoint
+  `c4d3a16` (including operator checkpoint `b172bdd` and integration commit `fa27adc`).
+- `multi-llm-platform`: branch `agent/production-readiness-roadmap`, deployment commit `5179053`.
+- `gitops-auto-remediation`: branch `agent/harden-remediation-safety`, commit `53188c8`; preserved
+  for reference but intentionally not deployed or integrated.
+
+The multi-LLM worktree still contains unrelated untracked `scripts/benchmark.py` and a saved
+Terraform plan at `terraform/tfdestroy`. Never commit or inspect the saved plan; request explicit
+approval before deleting it. Do not reset or overwrite either untracked file.
