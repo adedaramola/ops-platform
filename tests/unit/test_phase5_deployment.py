@@ -57,9 +57,7 @@ def test_migration_job_is_separate_and_bounded() -> None:
     assert pod_spec["serviceAccountName"] == "opsdesk-migrator"
     assert pod_spec["automountServiceAccountToken"] is False
     assert container["command"][-2:] == ["upgrade", "head"]
-    assert {item["name"]: item["value"] for item in container["env"]}["OPS_AI_ENABLED"] == (
-        "false"
-    )
+    assert {item["name"]: item["value"] for item in container["env"]}["OPS_AI_ENABLED"] == ("false")
     assert container["envFrom"][1]["secretRef"]["name"] == "opsdesk-migration"
     assert container["securityContext"]["readOnlyRootFilesystem"] is True
 
@@ -105,10 +103,7 @@ def test_phase8_agent_routes_through_gateway_without_shared_cache() -> None:
     assert data["OPS_AGENT_REQUEST_TIMEOUT_SECONDS"] == "25"
     assert data["OPS_AGENT_LLM_GATEWAY_ENABLED"] == "true"
     assert data["OPS_AGENT_LLM_GATEWAY_BASE_URL"] == "REPLACE_WITH_LLM_GATEWAY_URL"
-    assert (
-        data["OPS_AGENT_LLM_GATEWAY_API_KEY_SECRET_ARN"]
-        == "REPLACE_WITH_LLM_GATEWAY_SECRET_ARN"
-    )
+    assert data["OPS_AGENT_LLM_GATEWAY_API_KEY_SECRET_ARN"] == "REPLACE_WITH_LLM_GATEWAY_SECRET_ARN"
     assert data["OPS_AGENT_LLM_GATEWAY_CACHE_POLICY"] == "off"
 
 
