@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -115,3 +116,33 @@ def test_phase7_outbox_dispatcher_is_bounded_and_separate_from_agent() -> None:
     assert cronjob["spec"]["concurrencyPolicy"] == "Forbid"
     assert job_spec["activeDeadlineSeconds"] == 50
     assert container["command"] == ["opsdesk-ai-dispatch"]
+
+
+def test_docker_hub_overlays_use_the_canonical_public_image() -> None:
+    expected_image = [
+        {
+            "name": "opsdesk",
+            "newName": "docker.io/walexdee/opsdesk",
+            "newTag": "0.6.0",
+        }
+    ]
+
+    for relative_path in (
+        "dockerhub/kustomization.yaml",
+        "dockerhub/migration/kustomization.yaml",
+        "dockerhub/ai/kustomization.yaml",
+    ):
+        assert _document(KUBERNETES / relative_path)["images"] == expected_image
+
+
+def test_docker_hub_publisher_is_gated_and_uses_pinned_actions() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "publish-image.yml").read_text(encoding="utf-8")
+    action_references = re.findall(r"^\s*uses:\s*[^@\s]+@([^\s]+)", workflow, re.MULTILINE)
+
+    assert "workflow_run:" in workflow
+    assert "pull_request:" not in workflow
+    assert "vars.DOCKERHUB_PUBLISH_ENABLED == 'true'" in workflow
+    assert "secrets.DOCKERHUB_TOKEN" in workflow
+    assert "platforms: linux/amd64,linux/arm64" in workflow
+    assert len(action_references) == 6
+    assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in action_references)

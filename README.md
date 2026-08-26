@@ -49,7 +49,7 @@ This repository is currently at **Phase 5: production packaging and deployment c
 
 ## Implemented in Phase 5
 
-- Production image version `0.4.0` with fixed numeric UID/GID `10001:10001`
+- Production image version `0.6.0` with fixed numeric UID/GID `10001:10001`
 - Alembic configuration and migrations included in the same immutable application image
 - Read-only-root-compatible runtime with a bounded writable `/tmp`
 - Production validation for PostgreSQL, development credentials, and database pool limits
@@ -125,6 +125,11 @@ pipeline must wait for Alembic before rolling out OpsDesk.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the image contract, required runtime secrets, external
 PostgreSQL configuration, manifest layout, rollout order, and rollback rules.
+
+Docker Hub publication is configured for `docker.io/walexdee/opsdesk` and remains disabled until
+the repository access token is stored in GitHub and the explicit publishing variable is enabled.
+The deployment guide documents the immutable tags, public-image Kubernetes overlays, and initial
+setup procedure.
 
 For the current cross-repository AWS checkpoint and a copy-paste continuation prompt, see
 [HANDOFF_PROMPT.md](HANDOFF_PROMPT.md). Live pause/resume operations are owned by the EKS platform

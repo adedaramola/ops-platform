@@ -99,6 +99,15 @@ jobs:
           docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
             registry.k8s.io/kubectl:v1.34.1@sha256:59bafa07ff3a6d4b417e7633ddb9d79a9606ca98bf64bac080b3e65748669250 \
             kustomize deploy/kubernetes/base/migration > build/migration.yaml
+          docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
+            registry.k8s.io/kubectl:v1.34.1@sha256:59bafa07ff3a6d4b417e7633ddb9d79a9606ca98bf64bac080b3e65748669250 \
+            kustomize deploy/kubernetes/dockerhub > build/dockerhub.yaml
+          docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
+            registry.k8s.io/kubectl:v1.34.1@sha256:59bafa07ff3a6d4b417e7633ddb9d79a9606ca98bf64bac080b3e65748669250 \
+            kustomize deploy/kubernetes/dockerhub/migration > build/dockerhub-migration.yaml
+          docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
+            registry.k8s.io/kubectl:v1.34.1@sha256:59bafa07ff3a6d4b417e7633ddb9d79a9606ca98bf64bac080b3e65748669250 \
+            kustomize deploy/kubernetes/dockerhub/ai > build/dockerhub-ai.yaml
       - name: Validate Kubernetes schemas
         run: >-
           docker run --rm --volume "$PWD/build:/manifests:ro"

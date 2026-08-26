@@ -9,7 +9,7 @@ overlays belong to the separate EKS observability platform repository.
 Build the image from the repository root:
 
 ```bash
-docker build -t opsdesk:0.4.0 .
+docker build -t opsdesk:0.6.0 .
 ```
 
 The runtime image:
@@ -61,15 +61,61 @@ deploy/kubernetes/
 │   ├── common/       # namespace, non-secret configuration and service identities
 │   ├── migration/    # separately applied Alembic Job
 │   └── application/  # Deployment, Service, NetworkPolicy and disruption budget
+├── dockerhub/         # public-image application, migration and optional AI overlays
 └── secret.example.yaml
 ```
 
 The root base deliberately excludes the migration Job so applying the application cannot start a
 migration and rollout concurrently.
 
-The base has no Ingress, cloud annotations, image registry, certificate, storage class, or AWS
-identity binding. The platform overlay owns those environment-specific decisions and must replace
-`opsdesk:0.4.0` with an immutable ECR image digest or tag.
+The base has no Ingress, cloud annotations, certificate, storage class, or AWS identity binding.
+It retains the local image name `opsdesk:0.6.0` so platform overlays can select a registry without
+editing the reusable manifests. The Docker Hub overlays under `deploy/kubernetes/dockerhub` select
+`docker.io/walexdee/opsdesk:0.6.0`; production operators should replace that tag with the immutable
+digest emitted by the publishing workflow. AWS operators may instead select an immutable ECR
+digest.
+
+## Docker Hub publication
+
+The `Publish Docker image` workflow builds `linux/amd64` and `linux/arm64` images only after the
+`CI` workflow succeeds on `main`. It publishes the following tags to the repository configured by
+the `DOCKERHUB_IMAGE` GitHub variable:
+
+- `sha-<full-git-sha>`: immutable revision tag for deployments.
+- `<version>-<short-git-sha>`: immutable human-readable release tag.
+- `<version>` and `latest`: convenient moving tags for discovery and local evaluation.
+
+Configure the GitHub repository before enabling publication:
+
+1. Create the Docker Hub repository `walexdee/opsdesk`.
+2. Create a Docker Hub access token with permission to push only the required repository or
+   namespace.
+3. Set the GitHub repository variable `DOCKERHUB_USERNAME` to `walexdee`.
+4. Set the GitHub repository variable `DOCKERHUB_IMAGE` to `walexdee/opsdesk`.
+5. Add the access token as the GitHub repository secret `DOCKERHUB_TOKEN`.
+6. Set `DOCKERHUB_PUBLISH_ENABLED` to `true` and manually run `Publish Docker image` once.
+
+The publishing job is skipped while `DOCKERHUB_PUBLISH_ENABLED` is not `true`. This permits the
+workflow to merge safely before credentials exist. Never store the Docker Hub token in a file,
+command example, repository variable, workflow output, or committed configuration.
+
+After the first successful publication, pull and inspect the image with:
+
+```bash
+docker pull docker.io/walexdee/opsdesk:0.6.0
+docker image inspect docker.io/walexdee/opsdesk:0.6.0
+```
+
+Render the public-image application and migration packages with:
+
+```bash
+kubectl kustomize deploy/kubernetes/dockerhub
+kubectl kustomize deploy/kubernetes/dockerhub/migration
+```
+
+The optional AI package is rendered separately with
+`kubectl kustomize deploy/kubernetes/dockerhub/ai`. All packages still require environment-specific
+Secrets, PostgreSQL, ingress, DNS, and TLS configuration.
 
 The base NetworkPolicy limits application ingress to TCP port 8000. AWS security groups and the
 platform overlay must further limit ingress sources and define any required egress policy after the
@@ -143,7 +189,7 @@ ruff format --check src tests migrations
 ruff check src tests migrations
 mypy
 pytest --cov --cov-report=term-missing
-docker build -t opsdesk:0.4.0 .
+docker build -t opsdesk:0.6.0 .
 ```
 
 CI additionally checks the numeric image user, embedded migration assets, absence of development
