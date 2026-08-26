@@ -85,11 +85,15 @@ the `DOCKERHUB_IMAGE` GitHub variable:
 - `<version>-<short-git-sha>`: immutable human-readable release tag.
 - `<version>` and `latest`: convenient moving tags for discovery and local evaluation.
 
+After a successful push, the workflow groups tags by image digest and retains the three newest
+release revisions: the current release and two rollback points. It always preserves `latest` and
+removes the version, release-revision, and SHA tags attached to releases outside that window.
+
 Configure the GitHub repository before enabling publication:
 
 1. Create the Docker Hub repository `walexdee/opsdesk`.
-2. Create a Docker Hub access token with permission to push only the required repository or
-   namespace.
+2. Create a Docker Hub access token with Read, Write, and Delete permission, scoped to only the
+   required repository or namespace. Delete permission is required for automatic retention.
 3. Set the GitHub repository variable `DOCKERHUB_USERNAME` to `walexdee`.
 4. Set the GitHub repository variable `DOCKERHUB_IMAGE` to `walexdee/opsdesk`.
 5. Add the access token as the GitHub repository secret `DOCKERHUB_TOKEN`.

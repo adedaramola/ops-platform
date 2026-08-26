@@ -144,5 +144,6 @@ def test_docker_hub_publisher_is_gated_and_uses_pinned_actions() -> None:
     assert "vars.DOCKERHUB_PUBLISH_ENABLED == 'true'" in workflow
     assert "secrets.DOCKERHUB_TOKEN" in workflow
     assert "platforms: linux/amd64,linux/arm64" in workflow
+    assert 'prune_dockerhub_releases.py --repository "$DOCKERHUB_IMAGE" --keep 3' in workflow
     assert len(action_references) == 6
     assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in action_references)
