@@ -1,4 +1,4 @@
-.PHONY: install format lint type test test-integration run migrate compose-up compose-down seed manifests
+.PHONY: install format lint type test test-integration run migrate compose-up compose-down seed manifests backup-restore-test
 
 install:
 	python -m pip install -e ".[dev]"
@@ -41,3 +41,6 @@ manifests:
 	kubectl kustomize deploy/kubernetes/dockerhub >/dev/null
 	kubectl kustomize deploy/kubernetes/dockerhub/migration >/dev/null
 	kubectl kustomize deploy/kubernetes/dockerhub/ai >/dev/null
+
+backup-restore-test:
+	bash scripts/verify_backup_restore.sh

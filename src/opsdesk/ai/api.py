@@ -16,7 +16,7 @@ from opsdesk.ai.schemas import (
 )
 from opsdesk.auth.dependencies import AppSettings, CurrentPrincipal
 from opsdesk.auth.http import validate_csrf
-from opsdesk.observability.middleware import get_request_id
+from opsdesk.observability.middleware import get_request_id, get_traceparent
 from opsdesk.tickets.api import CsrfHeader
 
 router = APIRouter(tags=["AI workflows"])
@@ -44,6 +44,7 @@ def request_ai_suggestion(
         payload.suggestion_type,
         payload.idempotency_key,
         get_request_id(request),
+        get_traceparent(request),
     )
     return service.response(workflow)
 

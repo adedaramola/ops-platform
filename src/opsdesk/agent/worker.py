@@ -4,11 +4,11 @@ import json
 import time
 import uuid
 from contextlib import ExitStack
-from typing import Any
+from typing import Annotated, Any
 
 import boto3
 import httpx
-from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from opsdesk.agent.config import AgentSettings
 from opsdesk.agent.tools import DeterministicDraftTool, DraftTool, GatewayDraftTool
@@ -19,6 +19,10 @@ class QueueMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     workflow_id: uuid.UUID
+    traceparent: Annotated[
+        str | None,
+        Field(pattern=r"^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"),
+    ] = None
 
 
 def _resolve_gateway_api_key(settings: AgentSettings, client: Any) -> SecretStr:
@@ -40,6 +44,25 @@ def _resolve_gateway_api_key(settings: AgentSettings, client: Any) -> SecretStr:
     return SecretStr(decoded["api_key"])
 
 
+def _resolve_rag_api_key(settings: AgentSettings, client: Any) -> SecretStr:
+    if settings.rag_api_key is not None:
+        return settings.rag_api_key
+    secret_arn = settings.rag_api_key_secret_arn
+    if not secret_arn:
+        raise RuntimeError("RAG credential is not configured")
+    response = client.get_secret_value(SecretId=secret_arn)
+    raw_secret = response.get("SecretString")
+    if not isinstance(raw_secret, str) or not raw_secret:
+        raise RuntimeError("RAG credential secret has no SecretString")
+    try:
+        decoded = json.loads(raw_secret)
+    except json.JSONDecodeError:
+        return SecretStr(raw_secret)
+    if not isinstance(decoded, dict) or not isinstance(decoded.get("api_key"), str):
+        raise RuntimeError("RAG credential secret has an invalid format")
+    return SecretStr(decoded["api_key"])
+
+
 class AgentRunner:
     def __init__(
         self,
@@ -51,9 +74,11 @@ class AgentRunner:
         self.client = client
         self.tool = tool or DeterministicDraftTool()
 
-    def process(self, workflow_id: uuid.UUID) -> None:
+    def process(self, workflow_id: uuid.UUID, traceparent: str | None = None) -> None:
         started = time.monotonic()
         headers = {"X-OpsDesk-Agent-Token": self.settings.service_token.get_secret_value()}
+        if traceparent is not None:
+            headers["traceparent"] = traceparent
         context_response = self.client.get(
             f"/internal/v1/ai-workflows/{workflow_id}/context", headers=headers
         )
@@ -110,7 +135,26 @@ def main() -> None:
             )
             secrets_client = boto3.client("secretsmanager")
             gateway_api_key = _resolve_gateway_api_key(settings, secrets_client)
-            tool = GatewayDraftTool(settings, gateway_client, gateway_api_key)
+            rag_client: httpx.Client | None = None
+            rag_api_key: SecretStr | None = None
+            if settings.rag_enabled:
+                rag_url = settings.rag_base_url
+                if rag_url is None:
+                    raise RuntimeError("RAG URL is not configured")
+                rag_client = stack.enter_context(
+                    httpx.Client(
+                        base_url=str(rag_url).rstrip("/"),
+                        timeout=settings.request_timeout_seconds,
+                    )
+                )
+                rag_api_key = _resolve_rag_api_key(settings, secrets_client)
+            tool = GatewayDraftTool(
+                settings,
+                gateway_client,
+                gateway_api_key,
+                rag_client,
+                rag_api_key,
+            )
         runner = AgentRunner(settings, opsdesk_client, tool)
         while True:
             raw_message = _receive(sqs, settings)
@@ -126,7 +170,7 @@ def main() -> None:
                 )
                 continue
             try:
-                runner.process(message.workflow_id)
+                runner.process(message.workflow_id, message.traceparent)
             except (httpx.HTTPError, RuntimeError, TimeoutError, ValidationError):
                 # Safe retry: no consequential action occurs, and result submission is idempotent.
                 continue

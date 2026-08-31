@@ -123,3 +123,10 @@ jobs:
             echo "Digest: ${{ steps.build.outputs.digest }}"
             echo "Revision: ${{ steps.release.outputs.sha }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain the three newest release revisions
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+        shell: bash
+        run: python scripts/prune_dockerhub_releases.py --repository "$DOCKERHUB_IMAGE" --keep 3

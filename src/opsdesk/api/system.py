@@ -8,7 +8,7 @@ from opsdesk.core.config import get_settings
 from opsdesk.db.session import get_engine
 
 router = APIRouter(tags=["system"])
-EXPECTED_MIGRATION = "0004_gateway_usage"
+EXPECTED_MIGRATION = "0005_workflow_trace_context"
 
 
 def _database_ready() -> bool:

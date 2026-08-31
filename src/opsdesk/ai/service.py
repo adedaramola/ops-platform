@@ -3,7 +3,8 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import Sequence
-from datetime import timedelta
+from contextlib import nullcontext
+from datetime import datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -29,6 +30,8 @@ from opsdesk.core.errors import (
     ServiceUnavailableError,
 )
 from opsdesk.db.base import utc_now
+from opsdesk.observability.metrics import OpsMetrics
+from opsdesk.observability.tracing import Telemetry
 from opsdesk.tickets.models import Comment, Ticket, TicketActivity
 from opsdesk.tickets.repository import TicketRepository
 
@@ -37,13 +40,40 @@ def _content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def _bounded_provider_class(value: str) -> str:
+    normalized = value.casefold()
+    for provider in ("bedrock", "anthropic", "openai", "deterministic-fake"):
+        if normalized == provider:
+            return provider
+    return "other"
+
+
+def _bounded_model_class(value: str) -> str:
+    normalized = value.casefold()
+    if "nova-micro" in normalized or "haiku" in normalized:
+        return "low"
+    if "sonnet" in normalized or "nova-pro" in normalized:
+        return "standard"
+    if normalized == "phase7-contract-fixture":
+        return "deterministic"
+    return "other"
+
+
 class AiWorkflowService:
-    def __init__(self, db: Session, settings: Settings) -> None:
+    def __init__(
+        self,
+        db: Session,
+        settings: Settings,
+        metrics: OpsMetrics | None = None,
+        telemetry: Telemetry | None = None,
+    ) -> None:
         self.db = db
         self.settings = settings
         self.repository = AiRepository(db)
         self.tickets = TicketRepository(db)
         self.audit = AuthRepository(db)
+        self.metrics = metrics
+        self.telemetry = telemetry
 
     def request_suggestion(
         self,
@@ -52,6 +82,7 @@ class AiWorkflowService:
         suggestion_type: str,
         idempotency_key: str | None,
         request_id: str,
+        traceparent: str | None,
     ) -> AiWorkflow:
         if not self.settings.ai_enabled:
             raise ServiceUnavailableError(
@@ -73,6 +104,7 @@ class AiWorkflowService:
             ticket_version=ticket.version,
             idempotency_key=idempotency_key,
             deadline_at=now + timedelta(seconds=self.settings.ai_workflow_deadline_seconds),
+            traceparent=traceparent,
         )
         self.repository.add_workflow(workflow)
         self.db.flush()
@@ -104,6 +136,8 @@ class AiWorkflowService:
                 if existing is not None:
                     return existing
             raise ConflictError("The AI request could not be created") from error
+        if self.metrics:
+            self.metrics.ai_workflows.labels(outcome="requested").inc()
         return workflow
 
     def get_workflow(self, principal: AuthPrincipal, workflow_id: uuid.UUID) -> AiWorkflow:
@@ -171,6 +205,7 @@ class AiWorkflowService:
             public_comments=comments,
             deadline_at=workflow.deadline_at,
             cancel_requested=workflow.cancel_requested,
+            traceparent=workflow.traceparent,
         )
 
     def submit_result(self, workflow_id: uuid.UUID, result: AgentResult) -> AiWorkflow:
@@ -181,6 +216,26 @@ class AiWorkflowService:
         if workflow.status not in {AiWorkflowStatus.QUEUED, AiWorkflowStatus.RUNNING}:
             raise ConflictError("AI workflow no longer accepts results")
         now = utc_now()
+        span_context = (
+            self.telemetry.span(
+                "ai.workflow.complete",
+                {
+                    "ai.rag_used": result.rag_used,
+                    "ai.cache_hit": result.cache_hit,
+                },
+            )
+            if self.telemetry
+            else nullcontext()
+        )
+        with span_context:
+            return self._submit_result(workflow, result, now)
+
+    def _submit_result(
+        self,
+        workflow: AiWorkflow,
+        result: AgentResult,
+        now: datetime,
+    ) -> AiWorkflow:
         if workflow.cancel_requested or workflow.deadline_at <= now:
             raise ConflictError("AI workflow was cancelled or expired")
         content = result.content.strip()
@@ -190,7 +245,7 @@ class AiWorkflowService:
             suggestion_type=result.suggestion_type,
             content=content,
             content_hash=_content_hash(content),
-            citations=result.citations,
+            citations=[citation.model_dump(mode="json") for citation in result.citations],
             rag_used=result.rag_used,
             provider_class=result.provider_class,
             model_class=result.model_class,
@@ -231,6 +286,23 @@ class AiWorkflowService:
             existing = self.repository.get_workflow_suggestion(workflow.id)
             if existing is None:
                 raise
+        if self.metrics:
+            duration = max(0.0, (now - workflow.created_at).total_seconds())
+            provider_class = _bounded_provider_class(result.provider_class)
+            model_class = _bounded_model_class(result.model_class)
+            self.metrics.ai_workflows.labels(outcome="succeeded").inc()
+            self.metrics.ai_workflow_duration.labels(outcome="succeeded").observe(duration)
+            self.metrics.ai_generation.labels(
+                provider_class=provider_class,
+                model_class=model_class,
+                rag_used=str(result.rag_used).lower(),
+            ).inc()
+            self.metrics.ai_tokens.labels(direction="input").inc(result.input_tokens)
+            self.metrics.ai_tokens.labels(direction="output").inc(result.output_tokens)
+            if result.estimated_cost_usd is not None:
+                self.metrics.ai_estimated_cost.labels(provider_class=provider_class).inc(
+                    float(result.estimated_cost_usd)
+                )
         return self._workflow(workflow.id)
 
     def approve(
@@ -253,6 +325,9 @@ class AiWorkflowService:
             )
             suggestion.content = clean_content
             suggestion.content_hash = _content_hash(clean_content)
+            edited = True
+        else:
+            edited = False
         suggestion.approval_state = ApprovalState.APPROVED
         suggestion.reviewed_by_id = principal.user.id
         suggestion.reviewed_at = utc_now()
@@ -261,6 +336,9 @@ class AiWorkflowService:
         )
         self._audit_review(principal, suggestion, request_id, "ai_suggestion.approved")
         self.db.commit()
+        if edited:
+            self._record_review_metric(suggestion, "edited")
+        self._record_review_metric(suggestion, "approved")
         return suggestion
 
     def reject(
@@ -279,6 +357,7 @@ class AiWorkflowService:
         )
         self._audit_review(principal, suggestion, request_id, "ai_suggestion.rejected")
         self.db.commit()
+        self._record_review_metric(suggestion, "rejected")
         return suggestion
 
     def apply(
@@ -321,7 +400,22 @@ class AiWorkflowService:
         )
         self._audit_review(principal, suggestion, request_id, "ai_suggestion.applied")
         self.db.commit()
+        self._record_review_metric(suggestion, "applied", observe_duration=False)
         return suggestion, comment
+
+    def _record_review_metric(
+        self,
+        suggestion: AiSuggestion,
+        action: str,
+        *,
+        observe_duration: bool = True,
+    ) -> None:
+        if not self.metrics:
+            return
+        self.metrics.ai_reviews.labels(action=action).inc()
+        if observe_duration:
+            duration = max(0.0, (utc_now() - suggestion.generated_at).total_seconds())
+            self.metrics.ai_time_to_review.labels(action=action).observe(duration)
 
     def _reviewable(
         self, principal: AuthPrincipal, suggestion_id: uuid.UUID

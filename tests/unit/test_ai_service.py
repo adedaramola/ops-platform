@@ -38,6 +38,7 @@ def test_completed_workflow_context_remains_successful_after_deadline() -> None:
         status=AiWorkflowStatus.SUCCEEDED,
         cancel_requested=False,
         deadline_at=datetime.now(UTC) - timedelta(seconds=1),
+        traceparent=None,
     )
     ticket = SimpleNamespace(
         id=ticket_id,

@@ -8,6 +8,14 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+class CitationMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    citation_id: Annotated[str, Field(pattern=r"^C[1-9][0-9]*$", max_length=20)]
+    source_id: Annotated[str, Field(min_length=1, max_length=200)]
+    page: Annotated[int | None, Field(ge=0)] = None
+
+
 class AiSuggestionRequest(BaseModel):
     suggestion_type: Literal["draft_public_response"] = "draft_public_response"
     idempotency_key: Annotated[str | None, Field(min_length=8, max_length=128)] = None
@@ -62,6 +70,10 @@ class AgentTicketContext(BaseModel):
     public_comments: Annotated[list[str], Field(max_length=100)]
     deadline_at: datetime
     cancel_requested: bool
+    traceparent: Annotated[
+        str | None,
+        Field(pattern=r"^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"),
+    ] = None
 
 
 class AgentResult(BaseModel):
@@ -69,7 +81,7 @@ class AgentResult(BaseModel):
     content: Annotated[str, Field(min_length=1, max_length=10_000)]
     decision_summary: Annotated[str, Field(min_length=1, max_length=500)]
     selected_tools: Annotated[
-        list[Literal["draft_public_response", "multi_llm_gateway"]],
+        list[Literal["draft_public_response", "rag_search", "multi_llm_gateway"]],
         Field(min_length=1, max_length=3),
     ]
     provider_class: Annotated[str, Field(min_length=1, max_length=100)]
@@ -82,8 +94,8 @@ class AgentResult(BaseModel):
     cache_policy: Literal["not_applicable", "off", "private", "shared"] = "not_applicable"
     cache_source: Literal["not_applicable", "none", "exact", "semantic"] = "not_applicable"
     cache_hit: bool = False
-    rag_used: Literal[False] = False
-    citations: Annotated[list[dict[str, object]], Field(max_length=0)] = []
+    rag_used: bool = False
+    citations: Annotated[list[CitationMetadata], Field(max_length=8)] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_cache_metadata(self) -> AgentResult:
@@ -97,6 +109,11 @@ class AgentResult(BaseModel):
             raise ValueError("Gateway results require an applicable cache source")
         if self.cache_hit and self.cache_source not in {"exact", "semantic"}:
             raise ValueError("Cache hits require an exact or semantic source")
+        if self.rag_used != bool(self.citations):
+            raise ValueError("RAG usage and citation metadata must agree")
+        citation_ids = [citation.citation_id for citation in self.citations]
+        if len(citation_ids) != len(set(citation_ids)):
+            raise ValueError("Citation IDs must be unique")
         return self
 
 

@@ -8,10 +8,16 @@ from fastapi import Depends, Header
 from opsdesk.ai.service import AiWorkflowService
 from opsdesk.auth.dependencies import AppSettings, DatabaseSession
 from opsdesk.core.errors import AuthenticationError
+from opsdesk.observability.dependencies import MetricsDependency, TelemetryDependency
 
 
-def get_ai_service(db: DatabaseSession, settings: AppSettings) -> AiWorkflowService:
-    return AiWorkflowService(db, settings)
+def get_ai_service(
+    db: DatabaseSession,
+    settings: AppSettings,
+    metrics: MetricsDependency,
+    telemetry: TelemetryDependency,
+) -> AiWorkflowService:
+    return AiWorkflowService(db, settings, metrics, telemetry)
 
 
 AiServiceDependency = Annotated[AiWorkflowService, Depends(get_ai_service)]

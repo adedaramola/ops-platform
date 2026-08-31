@@ -4,8 +4,8 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-# Temporary testing policy. Restore production complexity requirements before release.
-MIN_PASSWORD_LENGTH = 8
+# Length-first release policy. Argon2id remains responsible for password storage.
+MIN_PASSWORD_LENGTH = 12
 
 
 class RegisterRequest(BaseModel):

@@ -112,6 +112,13 @@
       <span>Cost: {{ workflow.suggestion.estimated_cost_usd or "Not available" }}</span>
       <span>Review: {{ workflow.suggestion.approval_state|title }}</span>
     </div>
+    {% if workflow.suggestion.citations %}
+    <ul class="citation-list">
+      {% for citation in workflow.suggestion.citations %}
+      <li>{{ citation.citation_id }} · {{ citation.source_id }}{% if citation.page is not none %} · page {{ citation.page }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if workflow.suggestion.approval_state == "pending" %}
     <form class="draft-editor" method="post" action="/tickets/{{ ticket.id }}/ai-suggestions/{{ workflow.suggestion.id }}/approve">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

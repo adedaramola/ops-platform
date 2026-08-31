@@ -52,7 +52,7 @@ def test_migration_job_is_separate_and_bounded() -> None:
     pod_spec = job["spec"]["template"]["spec"]
     container = pod_spec["containers"][0]
 
-    assert job["metadata"]["name"] == "opsdesk-migrate-v0004"
+    assert job["metadata"]["name"] == "opsdesk-migrate-v0005"
     assert job["spec"]["backoffLimit"] == 2
     assert job["spec"]["activeDeadlineSeconds"] == 300
     assert pod_spec["serviceAccountName"] == "opsdesk-migrator"
@@ -108,6 +108,17 @@ def test_phase8_agent_routes_through_gateway_without_shared_cache() -> None:
     assert data["OPS_AGENT_LLM_GATEWAY_CACHE_POLICY"] == "off"
 
 
+def test_phase9_rag_is_optional_and_uses_scoped_runtime_placeholders() -> None:
+    config_map = _document(KUBERNETES / "ai" / "runtime-configmap.yaml")
+    data = config_map["data"]
+
+    assert data["OPS_AGENT_RAG_ENABLED"] == "false"
+    assert data["OPS_AGENT_RAG_BASE_URL"] == "REPLACE_WITH_RAG_URL"
+    assert data["OPS_AGENT_RAG_API_KEY_SECRET_ARN"] == "REPLACE_WITH_RAG_SECRET_ARN"
+    assert data["OPS_AGENT_RAG_SOURCE_IDS"] == "[]"
+    assert data["OPS_AGENT_RAG_MAX_CHUNKS"] == "5"
+
+
 def test_phase7_outbox_dispatcher_is_bounded_and_separate_from_agent() -> None:
     cronjob = _document(KUBERNETES / "ai" / "dispatcher-cronjob.yaml")
     job_spec = cronjob["spec"]["jobTemplate"]["spec"]
@@ -123,7 +134,7 @@ def test_docker_hub_overlays_use_the_canonical_public_image() -> None:
         {
             "name": "opsdesk",
             "newName": "docker.io/walexdee/opsdesk",
-            "newTag": "0.6.0",
+            "newTag": "0.7.0",
         }
     ]
 
@@ -144,5 +155,6 @@ def test_docker_hub_publisher_is_gated_and_uses_pinned_actions() -> None:
     assert "vars.DOCKERHUB_PUBLISH_ENABLED == 'true'" in workflow
     assert "secrets.DOCKERHUB_TOKEN" in workflow
     assert "platforms: linux/amd64,linux/arm64" in workflow
+    assert 'prune_dockerhub_releases.py --repository "$DOCKERHUB_IMAGE" --keep 3' in workflow
     assert len(action_references) == 6
     assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in action_references)

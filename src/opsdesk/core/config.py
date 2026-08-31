@@ -12,7 +12,7 @@ from sqlalchemy.exc import ArgumentError
 class Settings(BaseSettings):
     service_name: str = "opsdesk"
     environment: Literal["development", "test", "staging", "production"] = "development"
-    version: str = "0.6.0"
+    version: str = "0.7.0"
     log_level: str = "INFO"
     database_url: SecretStr = SecretStr(
         "postgresql+psycopg://opsdesk:opsdesk_dev_only@localhost:5433/opsdesk_db"
@@ -85,7 +85,8 @@ class Settings(BaseSettings):
                 database_url = make_url(self.database_url.get_secret_value())
             except ArgumentError:
                 raise ValueError("A valid database URL is required outside development") from None
-            if database_url.password == "opsdesk_dev_only":
+            # This development sentinel is rejected, never accepted as a production credential.
+            if database_url.password == "opsdesk_dev_only":  # nosec B105
                 raise ValueError(
                     "Development database credentials are not allowed outside development"
                 )
