@@ -16,10 +16,15 @@ from opsdesk.observability.metrics import OpsMetrics
 from opsdesk.observability.tracing import Telemetry
 
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+TRACEPARENT_PATTERN = re.compile(r"^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$")
 
 
 def get_request_id(request: Request) -> str:
     return getattr(request.state, "request_id", "unknown")
+
+
+def get_traceparent(request: Request) -> str | None:
+    return getattr(request.state, "traceparent", None)
 
 
 def get_route_template(request: Request) -> str:
@@ -54,6 +59,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         incoming = request.headers.get("X-Request-ID", "")
         request_id = incoming if REQUEST_ID_PATTERN.fullmatch(incoming) else str(uuid.uuid4())
         request.state.request_id = request_id
+        incoming_traceparent = request.headers.get("traceparent", "")
+        request.state.traceparent = (
+            incoming_traceparent
+            if TRACEPARENT_PATTERN.fullmatch(incoming_traceparent)
+            else self.telemetry.current_traceparent()
+        )
         traffic_source = "demo" if request.headers.get("X-Traffic-Source") == "demo" else "user"
         request.state.traffic_source = traffic_source
         started = time.perf_counter()

@@ -1,6 +1,43 @@
 # OpsDesk project status and resume handoff
 
-Last updated: 2026-08-25 (America/New_York)
+Last updated: 2026-08-31 (America/New_York)
+
+## Current completion checkpoint
+
+- OpsDesk release candidate `0.7.0` implements Phases 1–11 locally; no AWS mutation was performed
+  during the Phase 9–11 completion pass.
+- RAG Platform remains an independent repository and now exposes the authenticated, retrieval-only
+  `/v1/search` contract with approved-source filtering, bounded excerpts, validated citations, raw
+  query redaction, and trace/workflow correlation.
+- The independent multi-LLM gateway accepts the same bounded correlation contract and records trace
+  and workflow identifiers as non-metric CloudWatch context.
+- OpsDesk migration head is `0005_workflow_trace_context`; W3C trace context is persisted across the
+  transactional outbox and SQS boundary and forwarded by the Agent to both independent services.
+- The EKS observability repository defines the CloudWatch Observability add-on through Pod Identity,
+  a cross-system dashboard, queue/RDS alarms, optional gateway/RAG signals, and initial SLOs.
+- The release documentation now includes architecture, security/privacy, resilience, backup/restore,
+  connected demo, and limitations records. The password minimum is restored to 12 characters.
+- The local PostgreSQL 17 logical backup/restore exercise passed at migration `0005` with all 15
+  public tables. AWS RDS snapshot/PITR restore remains an explicitly unexecuted operator exercise.
+
+## Final local validation (2026-08-31)
+
+- OpsDesk: Ruff lint/format, strict mypy, Bandit, dependency audit, secret scan, migration upgrade,
+  six Kubernetes renders, and the PostgreSQL backup/restore exercise passed. The full suite passed
+  with 113 tests and 86.17% coverage.
+- RAG Platform: Ruff lint/format, strict mypy, Bandit, and scoped secret scans passed. The
+  deterministic suite passed with 161 tests, 3 skipped live-Weaviate checks, 1 deselected
+  credential/judge-gated evaluation, and 85.61% coverage.
+- Multi-LLM gateway: Ruff lint/format, strict mypy, Bandit, dependency audit, scoped secret scans,
+  and all 82 tests passed with 75.47% coverage.
+- EKS observability: Terraform formatting and configuration validation passed. No Terraform plan or
+  apply was run.
+- The RAG Platform development/CI Chroma dependency remains on the current upstream release with
+  published advisories and no fixed release available at this checkpoint. It is restricted to an
+  embedded local client and must not be exposed as a server; the production contract uses private
+  Weaviate. This residual risk must be reevaluated before release or any trust-boundary change.
+- No connected AWS demo, live Weaviate validation, judge-backed DeepEval run, RDS snapshot/PITR
+  restore, artifact publication, deployment, or branch merge was performed during this pass.
 
 ## Working agreements
 
@@ -195,27 +232,28 @@ resources. The state was verified on 2026-08-25:
 - The corrected suggestion remains pending for human review and was not posted automatically. The
   work queue and DLQ were both empty after processing.
 
-## Remaining portfolio phases
+## Remaining release operations
 
-- Phase 9: connect the existing independent RAG platform and validate approved-data citations. The
-  authoritative RAG Git repository must be located or cloned before implementation; the current
-  workspace does not contain it as a Git worktree.
-- Phase 10: finish the EKS observability layer and cross-system tracing, dashboards, alerts, and
-  SLOs across OpsDesk, SQS/Agent, PostgreSQL, and the Lambda gateway.
-- Phase 11: run final security and resilience exercises and produce public portfolio documentation,
-  architecture diagrams, demo instructions, and evidence.
-- Merge the reviewed feature branches into each repository's `main` branch after CI/PR review.
+- Review and merge the separate feature branches in each repository; none of the repositories is
+  made into a monorepo or code dependency by this integration.
+- Run and review fresh CI for every repository, then publish immutable `0.7.0` artifacts.
+- When explicitly approved, resume the paused EKS/RDS environment, apply reviewed infrastructure
+  plans, configure the RAG Platform and gateway identifiers/credentials, and run the connected demo.
+- Execute an isolated RDS snapshot/PITR restore and record its measured RTO/RPO; local logical
+  restore validation does not substitute for that AWS exercise.
 - Confirm the multi-LLM SNS email subscription. Rotate provider/API keys only when the user begins
   the next stage; rotation was explicitly deferred.
 - Keep GitOps auto-remediation de-scoped. It is not part of the integrated architecture.
 
 ## Saved repository checkpoint
 
-- `ops-platform`: branch `fix/phase5-ci-config-isolation`, integration commit `69f0e73` plus this
-  status/handoff checkpoint.
+- `ops-platform`: branch `feat/dockerhub-retention`, release-candidate changes are uncommitted for
+  review.
 - `eks-observability-platform`: branch `phase6/rds-log-privacy`, portable implementation checkpoint
   `c4d3a16` (including operator checkpoint `b172bdd` and integration commit `fa27adc`).
 - `multi-llm-platform`: branch `agent/production-readiness-roadmap`, deployment commit `5179053`.
+- `rag_platform`: branch `eval-26394740052`; preserve the user's pre-existing Terraform changes
+  while reviewing the RAG API and privacy changes.
 - `gitops-auto-remediation`: branch `agent/harden-remediation-safety`, commit `53188c8`; preserved
   for reference but intentionally not deployed or integrated.
 

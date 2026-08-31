@@ -9,7 +9,7 @@ overlays belong to the separate EKS observability platform repository.
 Build the image from the repository root:
 
 ```bash
-docker build -t opsdesk:0.6.0 .
+docker build -t opsdesk:0.7.0 .
 ```
 
 The runtime image:
@@ -32,6 +32,17 @@ Non-sensitive production defaults are in
 
 - `OPS_DATABASE_URL`
 - `OPS_CSRF_SECRET_KEY`
+
+The optional Agent deployment has separate service credentials. Its internal OpsDesk token is read
+from `opsdesk-runtime`; gateway and RAG credentials may be supplied directly for local development
+or resolved from narrowly scoped Secrets Manager ARNs through the Agent's workload identity. The
+portable AI ConfigMap keeps RAG disabled until an environment overlay provides all of:
+
+- `OPS_AGENT_RAG_BASE_URL`
+- `OPS_AGENT_RAG_API_KEY` or `OPS_AGENT_RAG_API_KEY_SECRET_ARN`
+- `OPS_AGENT_RAG_SOURCE_IDS`, as a JSON array matching the RAG Platform allowlist
+
+RAG unavailability does not affect OpsDesk readiness or ordinary ticket operations.
 
 `deploy/kubernetes/secret.example.yaml` contains placeholders only. Do not apply it as-is and do
 not commit a rendered Secret. The AWS platform must materialize the Secret from AWS Secrets Manager
@@ -69,9 +80,9 @@ The root base deliberately excludes the migration Job so applying the applicatio
 migration and rollout concurrently.
 
 The base has no Ingress, cloud annotations, certificate, storage class, or AWS identity binding.
-It retains the local image name `opsdesk:0.6.0` so platform overlays can select a registry without
+It retains the local image name `opsdesk:0.7.0` so platform overlays can select a registry without
 editing the reusable manifests. The Docker Hub overlays under `deploy/kubernetes/dockerhub` select
-`docker.io/walexdee/opsdesk:0.6.0`; production operators should replace that tag with the immutable
+`docker.io/walexdee/opsdesk:0.7.0`; production operators should replace that tag with the immutable
 digest emitted by the publishing workflow. AWS operators may instead select an immutable ECR
 digest.
 
@@ -106,8 +117,8 @@ command example, repository variable, workflow output, or committed configuratio
 After the first successful publication, pull and inspect the image with:
 
 ```bash
-docker pull docker.io/walexdee/opsdesk:0.6.0
-docker image inspect docker.io/walexdee/opsdesk:0.6.0
+docker pull docker.io/walexdee/opsdesk:0.7.0
+docker image inspect docker.io/walexdee/opsdesk:0.7.0
 ```
 
 Render the public-image application and migration packages with:
@@ -193,7 +204,7 @@ ruff format --check src tests migrations
 ruff check src tests migrations
 mypy
 pytest --cov --cov-report=term-missing
-docker build -t opsdesk:0.6.0 .
+docker build -t opsdesk:0.7.0 .
 ```
 
 CI additionally checks the numeric image user, embedded migration assets, absence of development

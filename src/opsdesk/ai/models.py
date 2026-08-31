@@ -75,6 +75,7 @@ class AiWorkflow(TimestampMixin, Base):
     failure_code: Mapped[str | None] = mapped_column(String(100))
     decision_summary: Mapped[str | None] = mapped_column(String(500))
     selected_tools: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    traceparent: Mapped[str | None] = mapped_column(String(55))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

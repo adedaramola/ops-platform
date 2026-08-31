@@ -1,13 +1,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: opsdesk-migrate-v0004
+  name: opsdesk-migrate-v0005
   namespace: opsdesk
   labels:
     app.kubernetes.io/name: opsdesk
     app.kubernetes.io/component: migration
     app.kubernetes.io/part-of: opsdesk
-    app.kubernetes.io/version: 0.6.0
+    app.kubernetes.io/version: 0.7.0
 spec:
   backoffLimit: 2
   activeDeadlineSeconds: 300
@@ -29,7 +29,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: migrate
-          image: opsdesk:0.6.0
+          image: opsdesk:0.7.0
           imagePullPolicy: IfNotPresent
           command:
             - alembic

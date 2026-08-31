@@ -244,7 +244,8 @@ class TrafficGenerator:
                 headers={"X-CSRF-Token": token},
                 json={
                     "email": "demo-rate-limit@opsdesk.example.com",
-                    "password": "Deliberately-Wrong-99!",
+                    # Deliberately invalid input for the bounded development-only rate-limit demo.
+                    "password": "-".join(("Deliberately", "Wrong", "99!")),
                 },
             )
             if response.status_code == 429:

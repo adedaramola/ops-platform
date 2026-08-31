@@ -2,7 +2,9 @@
 
 OpsDesk is a server-rendered support-ticket and knowledge-management application. The core product is a modular FastAPI monolith backed by PostgreSQL and remains fully functional when every AI integration is disabled.
 
-This repository is currently at **Phase 5: production packaging and deployment contracts**.
+This repository implements the OpsDesk application through **Phase 11: security, resilience, and
+portfolio release**. AWS-specific infrastructure and live deployment remain in the separate EKS
+observability repository.
 
 ## Implemented in Phase 2
 
@@ -49,7 +51,7 @@ This repository is currently at **Phase 5: production packaging and deployment c
 
 ## Implemented in Phase 5
 
-- Production image version `0.6.0` with fixed numeric UID/GID `10001:10001`
+- Production image version `0.7.0` with fixed numeric UID/GID `10001:10001`
 - Alembic configuration and migrations included in the same immutable application image
 - Read-only-root-compatible runtime with a bounded writable `/tmp`
 - Production validation for PostgreSQL, development credentials, and database pool limits
@@ -60,8 +62,33 @@ This repository is currently at **Phase 5: production packaging and deployment c
 - CI checks for image contents, numeric identity, read-only startup, manifests, and Kubernetes schemas
 - Migration, rollout, rollback, database-compatibility, and AWS ownership documentation
 
-AWS infrastructure, EKS, and RDS provisioning are intentionally deferred to Phase 6 and belong to
-the separate EKS observability platform repository.
+AWS infrastructure, EKS, and RDS are implemented in the separate EKS observability platform
+repository and intentionally remain outside this application repository.
+
+## Implemented in Phases 6–9
+
+- Private RDS, EKS, SQS/DLQ, HTTPS ingress, and account-neutral deployment overlays owned by the
+  EKS observability platform
+- Durable asynchronous AI workflows, transactional outbox dispatch, a separate CPU-only Agent,
+  and mandatory human review before any generated response is applied
+- Typed integration with the independently deployed multi-LLM gateway, including bounded requests,
+  scoped authentication, private/off cache policy, token and cost capture, and safe retry behavior
+- Optional authenticated RAG Platform retrieval through `POST /v1/search`, restricted to approved
+  source identifiers with bounded excerpts
+- Citation validation before persistence: the gateway may cite only evidence returned for the
+  current workflow, and OpsDesk stores source/page metadata rather than retrieved document text
+- Graceful degradation to an uncited, still-human-reviewed gateway draft when RAG is unavailable
+
+## Implemented in Phases 10–11
+
+- W3C trace and workflow correlation across OpsDesk, SQS, Agent, RAG Platform, and the multi-LLM
+  gateway without coupling the repositories
+- Bounded AI workflow, generation, token, cost, review, and time-to-review metrics
+- CloudWatch EKS observability, cross-system dashboards, queue/database alerts, and documented SLOs
+  in the separate infrastructure repository
+- A 12-character length-first password policy with unchanged Argon2id hash compatibility
+- Security/privacy threat review, failure and recovery runbooks, local logical backup/restore proof,
+  connected demo instructions, and an explicit limitations record
 
 ## Quick start with Docker Compose
 
@@ -119,7 +146,8 @@ alembic check
 
 ## Production deployment contract
 
-Phase 5 defines portable Kubernetes packages under `deploy/kubernetes` without applying resources.
+The repository defines portable Kubernetes packages under `deploy/kubernetes` without applying
+resources.
 The migration Job is intentionally rendered separately from the application so a deployment
 pipeline must wait for Alembic before rolling out OpsDesk.
 
@@ -219,6 +247,15 @@ in production. `SIGINT` and `SIGTERM` stop the generator and cancel in-flight sc
 - Search logs contain only bounded filter-presence fields, never raw search terms.
 - Metric labels and span attributes exclude user IDs, ticket IDs, request IDs, emails, queries,
   descriptions, comments, internal notes, credentials, and connection strings.
+
+## Project documentation
+
+- [Architecture and repository boundaries](ARCHITECTURE.md)
+- [Security and privacy review](SECURITY.md)
+- [Resilience and backup/restore](RESILIENCE.md)
+- [Portfolio demonstration](DEMO.md)
+- [Known limitations](LIMITATIONS.md)
+- [Deployment contract](DEPLOYMENT.md)
 
 ## Ticket API overview
 

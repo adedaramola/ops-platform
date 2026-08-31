@@ -42,8 +42,8 @@ def clean_database(request: pytest.FixtureRequest) -> Generator[None, None, None
             revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
     except SQLAlchemyError as error:
         pytest.fail(f"PostgreSQL test database is unavailable: {error}")
-    if revision != "0004_gateway_usage":
-        pytest.fail(f"Expected migration 0004_gateway_usage, found {revision!r}")
+    if revision != "0005_workflow_trace_context":
+        pytest.fail(f"Expected migration 0005_workflow_trace_context, found {revision!r}")
     with get_engine().begin() as connection:
         connection.execute(
             text(

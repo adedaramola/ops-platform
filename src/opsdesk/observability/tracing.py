@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 
-from opentelemetry import trace
+from opentelemetry import propagate, trace
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -90,6 +90,14 @@ class Telemetry:
         if not context.is_valid:
             return None
         return trace.format_trace_id(context.trace_id)
+
+    def current_traceparent(self) -> str | None:
+        """Return the current W3C traceparent without baggage or sensitive attributes."""
+        if not self.enabled:
+            return None
+        carrier: dict[str, str] = {}
+        propagate.inject(carrier)
+        return carrier.get("traceparent")
 
     def force_flush(self, timeout_millis: int = 5_000) -> bool:
         if self.provider is None:

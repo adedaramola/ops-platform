@@ -23,7 +23,7 @@ def test_browser_registration_login_and_logout(client: TestClient) -> None:
         "/register",
         data={
             "email": "browser@example.com",
-            "password": "simplepw",
+            "password": PASSWORD,
             "csrf_token": form_token(register_page.text),
         },
         follow_redirects=False,
@@ -39,7 +39,7 @@ def test_browser_registration_login_and_logout(client: TestClient) -> None:
         "/login",
         data={
             "email": "browser@example.com",
-            "password": "simplepw",
+            "password": PASSWORD,
             "csrf_token": form_token(login_page.text),
         },
         follow_redirects=False,
@@ -88,7 +88,7 @@ def test_browser_registration_explains_password_policy_and_allows_retry(
     )
 
     assert invalid_response.status_code == 422
-    assert "Password must be at least 8 characters." in invalid_response.text
+    assert "Password must be at least 12 characters." in invalid_response.text
     assert 'value="retry@example.com"' in invalid_response.text
     assert "shortpw" not in invalid_response.text
     assert form_token(invalid_response.text) == token
@@ -97,7 +97,7 @@ def test_browser_registration_explains_password_policy_and_allows_retry(
         "/register",
         data={
             "email": "retry@example.com",
-            "password": "simplepw",
+            "password": PASSWORD,
             "csrf_token": token,
         },
         follow_redirects=False,

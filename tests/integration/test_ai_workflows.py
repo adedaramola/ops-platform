@@ -10,6 +10,7 @@ from tests.helpers import csrf
 from tests.phase3_helpers import ActorFactory, command, create_ticket
 
 AGENT_HEADERS = {"X-OpsDesk-Agent-Token": "test-agent-service-token"}
+TRACEPARENT = "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
 
 
 def _result(content: str = "Please restart the VPN client and try again.") -> dict[str, object]:
@@ -49,7 +50,7 @@ def test_ai_draft_requires_staff_review_and_is_idempotently_applied(
     token = csrf(agent.client)
     request = agent.client.post(
         f"/api/v1/tickets/{ticket['id']}/ai-suggestions",
-        headers={"X-CSRF-Token": token},
+        headers={"X-CSRF-Token": token, "traceparent": TRACEPARENT},
         json={"idempotency_key": "vpn-draft-request-001"},
     )
     duplicate = agent.client.post(
@@ -72,6 +73,7 @@ def test_ai_draft_requires_staff_review_and_is_idempotently_applied(
     assert denied.status_code == 403
     assert bad_service_token.status_code == 401
     assert context.status_code == 200
+    assert context.json()["traceparent"] == TRACEPARENT
     assert "PRIVATE-AI-MARKER" not in context.text
     assert "ai-requester@example.com" not in context.text
 
@@ -150,6 +152,56 @@ def test_stale_ai_suggestion_cannot_be_approved(actor_factory: ActorFactory) -> 
     )
     assert approval.status_code == 409
     assert approval.json()["error"]["code"] == "CONFLICT"
+
+
+def test_grounded_result_persists_only_validated_citation_metadata(
+    actor_factory: ActorFactory,
+) -> None:
+    admin = actor_factory("grounded-admin@example.com", "admin")
+    ticket = create_ticket(admin, title="VPN knowledge lookup")
+    request = admin.client.post(
+        f"/api/v1/tickets/{ticket['id']}/ai-suggestions",
+        headers={"X-CSRF-Token": csrf(admin.client)},
+        json={},
+    )
+    workflow_id = request.json()["id"]
+    result = _result("Restart the VPN client, then refresh its device certificate.")
+    result.update(
+        {
+            "decision_summary": "Used approved RAG evidence and the multi-LLM gateway.",
+            "selected_tools": [
+                "draft_public_response",
+                "rag_search",
+                "multi_llm_gateway",
+            ],
+            "provider_class": "bedrock",
+            "model_class": "amazon.nova-micro-v1:0",
+            "gateway_request_id": "gateway-grounded-request",
+            "input_tokens": 140,
+            "output_tokens": 35,
+            "cache_policy": "off",
+            "cache_source": "none",
+            "cache_hit": False,
+            "rag_used": True,
+            "citations": [{"citation_id": "C1", "source_id": "vpn-runbook", "page": 4}],
+        }
+    )
+
+    submitted = admin.client.post(
+        f"/internal/v1/ai-workflows/{workflow_id}/result",
+        headers=AGENT_HEADERS,
+        json=result,
+    )
+
+    assert submitted.status_code == 200
+    suggestion = submitted.json()["suggestion"]
+    assert suggestion["rag_used"] is True
+    assert suggestion["citations"] == [{"citation_id": "C1", "source_id": "vpn-runbook", "page": 4}]
+    assert "Restart the VPN client" not in str(suggestion["citations"])
+    metrics = admin.client.get("/metrics").text
+    assert 'model_class="low",provider_class="bedrock",rag_used="true"' in metrics
+    assert 'direction="input"' in metrics
+    assert 'direction="output"' in metrics
 
 
 def test_completed_workflow_context_remains_successful_after_deadline(

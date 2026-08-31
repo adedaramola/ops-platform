@@ -13,7 +13,7 @@ from opsdesk.auth.http import set_csrf_cookie, validate_csrf
 from opsdesk.auth.security import get_csrf_manager
 from opsdesk.categories.dependencies import CategoryServiceDependency
 from opsdesk.core.errors import AppError
-from opsdesk.observability.middleware import get_request_id
+from opsdesk.observability.middleware import get_request_id, get_traceparent
 from opsdesk.tickets.dependencies import TicketServiceDependency
 from opsdesk.tickets.models import TicketPriority, TicketStatus
 from opsdesk.tickets.repository import TicketFilters
@@ -188,6 +188,7 @@ def ai_suggestion_submit(
         "draft_public_response",
         None,
         get_request_id(request),
+        get_traceparent(request),
     )
     return _ticket_redirect(ticket_id)
 
