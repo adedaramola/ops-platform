@@ -157,7 +157,8 @@ PostgreSQL configuration, manifest layout, rollout order, and rollback rules.
 Docker Hub publication is enabled for `docker.io/walexdee/opsdesk`. Successful `main` builds move
 `latest` to the new multi-architecture image and retain the current release plus two rollback
 releases. The deployment guide documents the immutable tags, public-image Kubernetes overlays,
-retention policy, and setup procedure.
+retention policy, required token permissions, recovery from a retention-only failure, and setup
+procedure.
 
 For the current cross-repository AWS checkpoint and a copy-paste continuation prompt, see
 [HANDOFF_PROMPT.md](HANDOFF_PROMPT.md). Live pause/resume operations are owned by the EKS platform

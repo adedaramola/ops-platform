@@ -37,9 +37,8 @@ Last updated: 2026-09-02 (America/New_York)
   embedded local client and must not be exposed as a server; the production contract uses private
   Weaviate. This residual risk must be reevaluated before release or any trust-boundary change.
 - The connected AWS infrastructure, live Weaviate retrieval contract, immutable artifact publish,
-  deployment, and branch merges were completed on 2026-09-01/02. A new ticket still needs the final
-  authenticated human review/apply walkthrough. Judge-backed DeepEval and isolated RDS
-  snapshot/PITR restore remain unexecuted.
+  deployment, branch merges, and authenticated human review/apply walkthrough were completed on
+  2026-09-01/02. Judge-backed DeepEval and isolated RDS snapshot/PITR restore remain unexecuted.
 
 ## Connected AWS deployment (2026-09-02)
 
@@ -242,7 +241,8 @@ resources. The state was verified on 2026-08-25:
   OpsDesk request completed in 0.98 seconds, and Lambda logs contained no errors.
 - The first cold public health request approached the API Gateway timeout, so the deployed OpsDesk
   Agent now uses a bounded 25-second gateway client timeout while retaining the 120-second total
-  workflow deadline. The SNS email subscription is pending confirmation.
+  workflow deadline. The SNS email subscription was recreated for the intended endpoint, confirmed,
+  and accepted a test publication on 2026-09-02.
 - Provider credentials were not rotated, per the user's decision, and no value is recorded here.
   OpsDesk retrieves only its scoped gateway credential through EKS Pod Identity and Secrets Manager;
   no direct gateway key is present in the Agent Deployment.
@@ -269,6 +269,13 @@ resources. The state was verified on 2026-08-25:
   `0.0.0.0/0`; private endpoint access remains enabled. The Terraform validation that rejects
   allow-all CIDRs remains intact, so the live endpoint must be narrowed to explicit `/32` addresses
   after testing.
+- OpsDesk Docker workflow run `33647802903`, triggered by documentation commit `e8a6a51`, built and
+  published the multi-architecture image successfully. Its final retention step failed when Docker
+  Hub returned HTTP 403 while deleting old tag `0.6.0`, so the overall workflow is red even though
+  publication completed. The configured credential authenticated and pushed but did not authorize
+  tag deletion. The owner deferred replacing `DOCKERHUB_TOKEN`; the follow-up is a scoped Docker Hub
+  token with Read, Write, and Delete permission, followed by a workflow rerun and retention check.
+  Do not expose the token or make retention non-blocking.
 
 ## Remaining release operations
 
@@ -276,13 +283,15 @@ resources. The state was verified on 2026-08-25:
   after interactive testing.
 - Execute an isolated RDS snapshot/PITR restore and record its measured RTO/RPO; local logical
   restore validation does not substitute for that AWS exercise.
-- Confirm the multi-LLM SNS email subscription. Rotate provider/API keys only when the user begins
-  the next stage; rotation was explicitly deferred.
+- Replace the deferred GitHub `DOCKERHUB_TOKEN` with a repository-scoped Read/Write/Delete token,
+  rerun Docker workflow `33647802903`, and verify that the three-release retention policy succeeds.
+- Rotate provider/API keys only when the user begins the next stage; rotation was explicitly
+  deferred.
 - Keep GitOps auto-remediation de-scoped. It is not part of the integrated architecture.
 
 ## Saved repository checkpoint
 
-- `ops-platform`: `main` at `d1a7ce2` before this status update.
+- `ops-platform`: `main` at `e8a6a51` before this status update.
 - `eks-observability-platform`: `main` at `cc702d7`.
 - `multi-llm-platform`: `main` at `f58f616`.
 - `rag_platform`: `main` at `cb7a3c9`.

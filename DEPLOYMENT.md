@@ -114,6 +114,14 @@ The publishing job is skipped while `DOCKERHUB_PUBLISH_ENABLED` is not `true`. T
 workflow to merge safely before credentials exist. Never store the Docker Hub token in a file,
 command example, repository variable, workflow output, or committed configuration.
 
+If **Build and publish** succeeds but **Retain the three newest release revisions** fails with HTTP
+403, the new image is already available and only retention failed. Verify that the token owner can
+administer the configured repository and replace `DOCKERHUB_TOKEN` with a repository-scoped token
+that has Read, Write, and Delete permission. Rerun the failed workflow and verify that obsolete
+version, release-revision, and SHA tags were removed. Do not make retention non-blocking merely to
+turn the workflow green; a failed cleanup must remain visible. Revoke the replaced token only after
+the rerun succeeds, and never print either token.
+
 After the first successful publication, pull and inspect the image with:
 
 ```bash
