@@ -1,11 +1,11 @@
 # OpsDesk project status and resume handoff
 
-Last updated: 2026-08-31 (America/New_York)
+Last updated: 2026-09-02 (America/New_York)
 
 ## Current completion checkpoint
 
-- OpsDesk release candidate `0.7.0` implements Phases 1–11 locally; no AWS mutation was performed
-  during the Phase 9–11 completion pass.
+- OpsDesk `0.7.0` implements Phases 1–11 and is deployed to the portfolio AWS environment by the
+  immutable ECR digest recorded below.
 - RAG Platform remains an independent repository and now exposes the authenticated, retrieval-only
   `/v1/search` contract with approved-source filtering, bounded excerpts, validated citations, raw
   query redaction, and trace/workflow correlation.
@@ -36,8 +36,34 @@ Last updated: 2026-08-31 (America/New_York)
   published advisories and no fixed release available at this checkpoint. It is restricted to an
   embedded local client and must not be exposed as a server; the production contract uses private
   Weaviate. This residual risk must be reevaluated before release or any trust-boundary change.
-- No connected AWS demo, live Weaviate validation, judge-backed DeepEval run, RDS snapshot/PITR
-  restore, artifact publication, deployment, or branch merge was performed during this pass.
+- The connected AWS infrastructure, live Weaviate retrieval contract, immutable artifact publish,
+  deployment, and branch merges were completed on 2026-09-01/02. A new ticket still needs the final
+  authenticated human review/apply walkthrough. Judge-backed DeepEval and isolated RDS
+  snapshot/PITR restore remain unexecuted.
+
+## Connected AWS deployment (2026-09-02)
+
+- All four active repositories are on `main`; the owner chose validated direct-to-`main` pushes for
+  subsequent work instead of pull requests.
+- RAG Platform is deployed at `https://rag.cafeinaded.com`. Its authenticated `/v1/search`
+  endpoint returned HTTP 200 with one bounded chunk from the only approved source,
+  `opsdesk-demo-runbook`; unauthenticated search returns 403.
+- The RAG EC2 nodes are managed through Systems Manager. The production embedding backend uses
+  `BAAI/bge-small-en-v1.5` locally because the configured OpenAI account had no remaining embedding
+  credits. The persistent Weaviate EBS volume now survives instance replacement.
+- The EKS Terraform changes applied without durable-resource deletions: cross-system
+  dashboard/alarms, scoped RAG credential access, CloudWatch Container Insights through Pod
+  Identity, and a one-node dev worker group. CloudWatch Application Signals auto-instrumentation is
+  disabled because its injected Java container conflicted with Restricted Pod Security.
+- OpsDesk migration `opsdesk-migrate-v0005` completed. The web deployment is 2/2 Ready, the CPU
+  Agent is 1/1 Ready, the dispatcher is active, and both the work queue and DLQ are empty.
+- Public OpsDesk readiness is HTTP 200 at `https://opsdesk.cafeinaded.com/health/ready`. From the
+  Agent pod, both RAG Platform and the multi-LLM gateway health endpoints return HTTP 200.
+- The deployed image is
+  `900009968072.dkr.ecr.us-east-1.amazonaws.com/opsdesk@sha256:8eacbba9863fc784a13b4db52af14330b18319a716e2406d53ff1d0cee7266b5`,
+  built from OpsDesk commit `687cfe0d27a27d76751467810a3e344d06e8fe6a` and tagged `0.7.0`/`687cfe0`.
+- Temporary Terraform plan files created for the RAG and EKS applies were deleted after use; no
+  credential values were printed. The unrelated multi-LLM `terraform/tfdestroy` remains untouched.
 
 ## Working agreements
 
@@ -128,7 +154,7 @@ The current feature branch contains a narrow asynchronous AI response-draft work
   was never displayed or written to this repository.
 - Public `/health/ready` returned `{"status":"ready"}` after rollout.
 
-## Current shutdown state
+## Prior shutdown state (2026-08-24)
 
 The integrated environment was paused again on 2026-08-24 without destroying reproducible
 resources. The state was verified on 2026-08-25:
@@ -234,11 +260,9 @@ resources. The state was verified on 2026-08-25:
 
 ## Remaining release operations
 
-- Review and merge the separate feature branches in each repository; none of the repositories is
-  made into a monorepo or code dependency by this integration.
-- Run and review fresh CI for every repository, then publish immutable `0.7.0` artifacts.
-- When explicitly approved, resume the paused EKS/RDS environment, apply reviewed infrastructure
-  plans, configure the RAG Platform and gateway identifiers/credentials, and run the connected demo.
+- Use an existing authorized administrator session to create a new VPN-reset ticket, request its AI
+  draft, verify `rag_used=true` and approved citations, then explicitly approve and separately apply
+  the public comment. Browser authentication is the only remaining connected-demo boundary.
 - Execute an isolated RDS snapshot/PITR restore and record its measured RTO/RPO; local logical
   restore validation does not substitute for that AWS exercise.
 - Confirm the multi-LLM SNS email subscription. Rotate provider/API keys only when the user begins
@@ -247,13 +271,10 @@ resources. The state was verified on 2026-08-25:
 
 ## Saved repository checkpoint
 
-- `ops-platform`: branch `feat/dockerhub-retention`, release-candidate changes are uncommitted for
-  review.
-- `eks-observability-platform`: branch `phase6/rds-log-privacy`, portable implementation checkpoint
-  `c4d3a16` (including operator checkpoint `b172bdd` and integration commit `fa27adc`).
-- `multi-llm-platform`: branch `agent/production-readiness-roadmap`, deployment commit `5179053`.
-- `rag_platform`: branch `eval-26394740052`; preserve the user's pre-existing Terraform changes
-  while reviewing the RAG API and privacy changes.
+- `ops-platform`: `main` at `687cfe0` before this status update.
+- `eks-observability-platform`: `main` at `cc702d7`.
+- `multi-llm-platform`: `main` at `f58f616`.
+- `rag_platform`: `main` at `cb7a3c9`.
 - `gitops-auto-remediation`: branch `agent/harden-remediation-safety`, commit `53188c8`; preserved
   for reference but intentionally not deployed or integrated.
 
