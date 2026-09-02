@@ -1,6 +1,6 @@
 # Continuation handoff prompt
 
-Use this context for the remaining connected demo and recovery validation. It does not authorize
+Use this context for the remaining access cleanup and recovery validation. It does not authorize
 new live AWS changes beyond the already deployed environment.
 
 ---
@@ -52,19 +52,23 @@ It does not prove RDS snapshot or point-in-time recovery.
 ## Live-state checkpoint
 
 The EKS worker, RDS, HTTPS ALB, OpsDesk `0.7.0`, Agent, dispatcher, RAG Platform, and lean multi-LLM
-gateway are active. OpsDesk is Ready, the Agent can reach both independent services, RAG retrieval
-returns only the approved `opsdesk-demo-runbook` source, and both SQS queues were empty at the
-checkpoint. Reverify with the read-only lifecycle status procedure before acting. Do not start,
-stop, destroy, rotate, or subscribe merely to inspect state.
+gateway are active. OpsDesk is Ready, the Agent can reach both independent services, and live ticket
+`OPS-000003` completed the connected RAG workflow: first-attempt success, `rag_used=true`, citation
+`C1` from approved source `opsdesk-demo-runbook`, human approval, and a separate apply action with a
+valid public-comment link. The ticket also has an internal note, which remained outside Agent
+context. Both the work queue and DLQ were empty after processing.
+
+The owner temporarily authorized `0.0.0.0/0` for the EKS public API endpoint during testing; private
+endpoint access remains enabled. The repository guardrail still rejects allow-all CIDRs and was not
+changed. Restrict the live endpoint again when interactive testing is finished. Reverify with the
+read-only lifecycle status procedure before acting. Do not start, stop, destroy, rotate, or
+subscribe merely to inspect state.
 
 ## Next operations
 
-1. Use an existing authorized administrator session to execute the new-ticket, AI-draft,
-   citation-review, approval, and separate-apply flow in `DEMO.md`. Never bypass the human review
-   boundary or reset an existing credential without explicit owner direction.
-2. Verify the resulting workflow correlation, RAG/gateway metadata, queues, DLQ, and privacy-safe
-   logs without recording raw ticket/evidence content.
-3. Restore an RDS snapshot/PITR into an isolated target and record measured RTO/RPO before claiming
+1. Replace the temporary EKS API `0.0.0.0/0` allowlist with explicit operator `/32` CIDRs after the
+   owner confirms interactive testing is finished.
+2. Restore an RDS snapshot/PITR into an isolated target and record measured RTO/RPO before claiming
    the AWS recovery requirement complete.
 
 ## Working rules
@@ -81,6 +85,7 @@ stop, destroy, rotate, or subscribe merely to inspect state.
 - The owner chose direct pushes to `main` for speed. Validate each change before pushing and keep
   repositories separate.
 
-Start by reporting repository and live runtime status, then continue from the human-demo boundary.
+Start by reporting repository and live runtime status, including the temporary EKS endpoint access,
+then continue with access cleanup or the isolated AWS recovery exercise as directed.
 
 ---

@@ -257,12 +257,23 @@ resources. The state was verified on 2026-08-25:
   `none`/hit `false`, and selected tools `draft_public_response` plus `multi_llm_gateway`.
 - The corrected suggestion remains pending for human review and was not posted automatically. The
   work queue and DLQ were both empty after processing.
+- Live ticket `OPS-000003` completed the connected RAG acceptance flow through workflow
+  `13418d7f-3a2c-4ddc-9f15-10f9a738b9d6`: it succeeded on its first attempt, selected
+  `draft_public_response`, `rag_search`, and `multi_llm_gateway`, recorded `rag_used=true`, and
+  cited `C1` from approved source `opsdesk-demo-runbook`. The owner explicitly approved the draft
+  and separately applied it; the persisted applied-comment link is valid. The ticket has two public
+  comments and one internal note, and the audit trail records `approved` followed by `applied`.
+- After the completed workflow, the work queue and DLQ both had zero visible, in-flight, or delayed
+  messages.
+- For interactive testing, the owner temporarily authorized the EKS public endpoint CIDR
+  `0.0.0.0/0`; private endpoint access remains enabled. The Terraform validation that rejects
+  allow-all CIDRs remains intact, so the live endpoint must be narrowed to explicit `/32` addresses
+  after testing.
 
 ## Remaining release operations
 
-- Use an existing authorized administrator session to create a new VPN-reset ticket, request its AI
-  draft, verify `rag_used=true` and approved citations, then explicitly approve and separately apply
-  the public comment. Browser authentication is the only remaining connected-demo boundary.
+- Replace the temporary EKS public endpoint CIDR `0.0.0.0/0` with explicit operator `/32` CIDRs
+  after interactive testing.
 - Execute an isolated RDS snapshot/PITR restore and record its measured RTO/RPO; local logical
   restore validation does not substitute for that AWS exercise.
 - Confirm the multi-LLM SNS email subscription. Rotate provider/API keys only when the user begins
@@ -271,7 +282,7 @@ resources. The state was verified on 2026-08-25:
 
 ## Saved repository checkpoint
 
-- `ops-platform`: `main` at `687cfe0` before this status update.
+- `ops-platform`: `main` at `d1a7ce2` before this status update.
 - `eks-observability-platform`: `main` at `cc702d7`.
 - `multi-llm-platform`: `main` at `f58f616`.
 - `rag_platform`: `main` at `cb7a3c9`.
