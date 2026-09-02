@@ -4,7 +4,7 @@ Last updated: 2026-09-02 (America/New_York)
 
 ## Current completion checkpoint
 
-- OpsDesk `0.7.0` implements Phases 1–11 and is deployed to the portfolio AWS environment by the
+- OpsDesk `0.7.1` implements Phases 1–11 and is deployed to the portfolio AWS environment by the
   immutable ECR digest recorded below.
 - RAG Platform remains an independent repository and now exposes the authenticated, retrieval-only
   `/v1/search` contract with approved-source filtering, bounded excerpts, validated citations, raw
@@ -20,11 +20,12 @@ Last updated: 2026-09-02 (America/New_York)
 - The local PostgreSQL 17 logical backup/restore exercise passed at migration `0005` with all 15
   public tables. AWS RDS snapshot/PITR restore remains an explicitly unexecuted operator exercise.
 
-## Final local validation (2026-08-31)
+## Final local validation (2026-09-02)
 
 - OpsDesk: Ruff lint/format, strict mypy, Bandit, dependency audit, secret scan, migration upgrade,
-  six Kubernetes renders, and the PostgreSQL backup/restore exercise passed. The full suite passed
-  with 113 tests and 86.17% coverage.
+  six Kubernetes renders, and the PostgreSQL backup/restore exercise passed. The latest full suite
+  passed with 114 tests and 86.32% coverage. Release `0.7.1` also disables unavailable status and
+  category choices in the ticket UI and surfaces rejected workflow changes inline.
 - RAG Platform: Ruff lint/format, strict mypy, Bandit, and scoped secret scans passed. The
   deterministic suite passed with 161 tests, 3 skipped live-Weaviate checks, 1 deselected
   credential/judge-gated evaluation, and 85.61% coverage.
@@ -59,8 +60,10 @@ Last updated: 2026-09-02 (America/New_York)
 - Public OpsDesk readiness is HTTP 200 at `https://opsdesk.cafeinaded.com/health/ready`. From the
   Agent pod, both RAG Platform and the multi-LLM gateway health endpoints return HTTP 200.
 - The deployed image is
-  `900009968072.dkr.ecr.us-east-1.amazonaws.com/opsdesk@sha256:8eacbba9863fc784a13b4db52af14330b18319a716e2406d53ff1d0cee7266b5`,
-  built from OpsDesk commit `687cfe0d27a27d76751467810a3e344d06e8fe6a` and tagged `0.7.0`/`687cfe0`.
+  `900009968072.dkr.ecr.us-east-1.amazonaws.com/opsdesk@sha256:a6d73185f5449e78665b585f32d7cc93abda986af828c4695e4c094e9df6f03d`,
+  built from OpsDesk commit `4f76a73b4f7bbf0514bee593d76075a74624db02` and tagged `0.7.1`/`4f76a73`.
+- The web deployment is 2/2 Ready, the Agent is 1/1 Ready, the dispatcher completed with the new
+  image, and public `/health` and `/health/ready` both passed after the `0.7.1` rollout.
 - Temporary Terraform plan files created for the RAG and EKS applies were deleted after use; no
   credential values were printed. The unrelated multi-LLM `terraform/tfdestroy` remains untouched.
 

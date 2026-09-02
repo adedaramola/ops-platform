@@ -17,7 +17,7 @@ queue, telemetry, and infrastructure contracts:
 
 1. `ops-platform` owns FastAPI OpsDesk, PostgreSQL/Alembic migrations, the CPU Agent, SQS dispatch,
    integration clients, tests, and portable Kubernetes bases. Current branch at the checkpoint:
-   `main`; deployed version `0.7.0`; migration head
+   `main`; deployed version `0.7.1`; migration head
    `0005_workflow_trace_context`.
 2. `rag_platform` owns approved documents, embeddings, retrieval, citation evidence, API auth, and
    its independent deployment. Its product name is “RAG Platform.” Its current branch is `main`.
@@ -51,12 +51,19 @@ It does not prove RDS snapshot or point-in-time recovery.
 
 ## Live-state checkpoint
 
-The EKS worker, RDS, HTTPS ALB, OpsDesk `0.7.0`, Agent, dispatcher, RAG Platform, and lean multi-LLM
+The EKS worker, RDS, HTTPS ALB, OpsDesk `0.7.1`, Agent, dispatcher, RAG Platform, and lean multi-LLM
 gateway are active. OpsDesk is Ready, the Agent can reach both independent services, and live ticket
 `OPS-000003` completed the connected RAG workflow: first-attempt success, `rag_used=true`, citation
 `C1` from approved source `opsdesk-demo-runbook`, human approval, and a separate apply action with a
 valid public-comment link. The ticket also has an internal note, which remained outside Agent
 context. Both the work queue and DLQ were empty after processing.
+
+OpsDesk `0.7.1` disables status transitions and category selections that the current actor cannot
+perform, keeps those choices visible and gray, and displays backend workflow conflicts inline. It
+is deployed from commit `4f76a73b4f7bbf0514bee593d76075a74624db02` at ECR digest
+`sha256:a6d73185f5449e78665b585f32d7cc93abda986af828c4695e4c094e9df6f03d`. The rollout completed with
+2/2 web replicas and 1/1 Agent Ready, the dispatcher completed successfully, and both public health
+endpoints passed. The EKS overlay pin is committed on its `main` branch at `e75d6d5`.
 
 The multi-LLM SNS email subscription is confirmed, and SNS accepted a test publication after
 confirmation. A later documentation-only OpsDesk push triggered Docker image workflow run
