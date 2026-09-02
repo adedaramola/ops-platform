@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: opsdesk
     app.kubernetes.io/component: migration
     app.kubernetes.io/part-of: opsdesk
-    app.kubernetes.io/version: 0.7.0
+    app.kubernetes.io/version: 0.7.1
 spec:
   backoffLimit: 2
   activeDeadlineSeconds: 300
@@ -29,7 +29,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: migrate
-          image: opsdesk:0.7.0
+          image: opsdesk:0.7.1
           imagePullPolicy: IfNotPresent
           command:
             - alembic

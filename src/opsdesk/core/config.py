@@ -12,7 +12,7 @@ from sqlalchemy.exc import ArgumentError
 class Settings(BaseSettings):
     service_name: str = "opsdesk"
     environment: Literal["development", "test", "staging", "production"] = "development"
-    version: str = "0.7.0"
+    version: str = "0.7.1"
     log_level: str = "INFO"
     database_url: SecretStr = SecretStr(
         "postgresql+psycopg://opsdesk:opsdesk_dev_only@localhost:5433/opsdesk_db"

@@ -51,7 +51,7 @@ observability repository.
 
 ## Implemented in Phase 5
 
-- Production image version `0.7.0` with fixed numeric UID/GID `10001:10001`
+- Production image version `0.7.1` with fixed numeric UID/GID `10001:10001`
 - Alembic configuration and migrations included in the same immutable application image
 - Read-only-root-compatible runtime with a bounded writable `/tmp`
 - Production validation for PostgreSQL, development credentials, and database pool limits

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -12,7 +13,7 @@ from opsdesk.auth.dependencies import AppSettings, CurrentPrincipal
 from opsdesk.auth.http import set_csrf_cookie, validate_csrf
 from opsdesk.auth.security import get_csrf_manager
 from opsdesk.categories.dependencies import CategoryServiceDependency
-from opsdesk.core.errors import AppError
+from opsdesk.core.errors import AppError, ConflictError, WorkflowError
 from opsdesk.observability.middleware import get_request_id, get_traceparent
 from opsdesk.tickets.dependencies import TicketServiceDependency
 from opsdesk.tickets.models import TicketPriority, TicketStatus
@@ -135,18 +136,21 @@ def ticket_detail_page(
     service: TicketServiceDependency,
     category_service: CategoryServiceDependency,
     ai_service: AiServiceDependency,
+    error: Annotated[str | None, Query(max_length=300)] = None,
 ) -> Response:
     ticket = service.get(principal, ticket_id)
     token = get_csrf_manager().issue(principal.session.csrf_secret)
     can_manage = principal.user.role_key == "admin" or (
         principal.user.role_key == "agent" and ticket.assignee_id == principal.user.id
     )
+    categories = category_service.list(principal)
     response = templates.TemplateResponse(
         request=request,
         name="tickets/detail.html",
         context={
             "principal": principal,
             "ticket": ticket,
+            "error": error,
             "comments": service.comments(principal, ticket_id),
             "activity": service.activity(principal, ticket_id),
             "internal_notes": (
@@ -154,9 +158,15 @@ def ticket_detail_page(
                 if principal.user.role_key in {"agent", "admin"}
                 else ()
             ),
-            "categories": category_service.list(principal),
+            "categories": categories,
+            "can_change_category": can_manage
+            and any(
+                category.is_active and category.id != ticket.category_id for category in categories
+            ),
             "agents": service.assignable_agents(principal),
             "can_manage": can_manage,
+            "ticket_statuses": tuple(item.value for item in TicketStatus),
+            "allowed_statuses": service.allowed_status_transitions(principal, ticket),
             "ai_enabled": settings.ai_enabled,
             "ai_workflows": (
                 [
@@ -296,14 +306,17 @@ def status_submit(
     expected_version: Annotated[int, Form(gt=0)],
     csrf_token: Annotated[str, Form(min_length=1, max_length=256)],
 ) -> RedirectResponse:
-    validate_csrf(request, csrf_token, settings, principal)
-    service.change_status(
-        principal,
-        ticket_id,
-        ticket_status,
-        expected_version,
-        get_request_id(request),
-    )
+    try:
+        validate_csrf(request, csrf_token, settings, principal)
+        service.change_status(
+            principal,
+            ticket_id,
+            ticket_status,
+            expected_version,
+            get_request_id(request),
+        )
+    except (ConflictError, WorkflowError) as error:
+        return _ticket_redirect(ticket_id, error.message)
     return _ticket_redirect(ticket_id)
 
 
@@ -336,16 +349,22 @@ def category_submit(
     expected_version: Annotated[int, Form(gt=0)],
     csrf_token: Annotated[str, Form(min_length=1, max_length=256)],
 ) -> RedirectResponse:
-    validate_csrf(request, csrf_token, settings, principal)
-    service.change_category(
-        principal,
-        ticket_id,
-        category_id,
-        expected_version,
-        get_request_id(request),
-    )
+    try:
+        validate_csrf(request, csrf_token, settings, principal)
+        service.change_category(
+            principal,
+            ticket_id,
+            category_id,
+            expected_version,
+            get_request_id(request),
+        )
+    except (ConflictError, WorkflowError) as error:
+        return _ticket_redirect(ticket_id, error.message)
     return _ticket_redirect(ticket_id)
 
 
-def _ticket_redirect(ticket_id: uuid.UUID) -> RedirectResponse:
-    return RedirectResponse(f"/tickets/{ticket_id}", status_code=status.HTTP_303_SEE_OTHER)
+def _ticket_redirect(ticket_id: uuid.UUID, error: str | None = None) -> RedirectResponse:
+    location = f"/tickets/{ticket_id}"
+    if error is not None:
+        location = f"{location}?{urlencode({'error': error})}"
+    return RedirectResponse(location, status_code=status.HTTP_303_SEE_OTHER)

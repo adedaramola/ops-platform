@@ -97,3 +97,51 @@ def test_htmx_ticket_search_and_admin_browser(actor_factory: ActorFactory) -> No
     assert admin_page.status_code == 200
     assert category_response.status_code == 303
     assert "Software" in refreshed.text
+
+
+def test_ticket_controls_disable_unavailable_choices_and_show_workflow_errors(
+    actor_factory: ActorFactory,
+) -> None:
+    requester = actor_factory("status-requester@example.com", "user")
+    admin = actor_factory("status-admin@example.com", "admin")
+    ticket = create_ticket(requester)
+    path = f"/tickets/{ticket['id']}"
+
+    detail = admin.client.get(path)
+    assert detail.status_code == 200
+    assert 'value="closed" disabled aria-disabled="true"' in detail.text
+    assert "Closed (Unavailable)" in detail.text
+    assert "General (Current)" in detail.text
+    assert "No other active categories" in detail.text
+    assert 'id="category-update" type="submit" class="secondary" disabled' in detail.text
+
+    invalid = admin.client.post(
+        f"{path}/status",
+        data={
+            "status": "closed",
+            "expected_version": 1,
+            "csrf_token": token_from(detail.text),
+        },
+        follow_redirects=False,
+    )
+    assert invalid.status_code == 303
+    error_page = admin.client.get(invalid.headers["location"])
+    assert error_page.status_code == 200
+    assert 'class="alert" role="alert"' in error_page.text
+    assert "Cannot transition ticket from open to closed" in error_page.text
+
+    admin_page = admin.client.get("/admin")
+    created_category = admin.client.post(
+        "/admin/categories",
+        data={
+            "name": "Network",
+            "description": "Connectivity requests",
+            "csrf_token": token_from(admin_page.text),
+        },
+        follow_redirects=False,
+    )
+    assert created_category.status_code == 303
+    refreshed = admin.client.get(path)
+    assert "No other active categories" not in refreshed.text
+    assert ">Network</option>" in refreshed.text
+    assert 'id="category-update" type="submit" class="secondary" disabled' not in refreshed.text

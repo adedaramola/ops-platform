@@ -277,6 +277,20 @@ class TicketService:
             request_id,
         )
 
+    def allowed_status_transitions(
+        self, principal: AuthPrincipal, ticket: Ticket
+    ) -> frozenset[str]:
+        """Return only the status transitions the current actor may submit."""
+        allowed = ALLOWED_TRANSITIONS.get(ticket.status, frozenset())
+        if self._can_manage_ticket(principal, ticket):
+            return allowed
+        if ticket.requester_id == principal.user.id and ticket.status in {
+            TicketStatus.RESOLVED,
+            TicketStatus.CLOSED,
+        }:
+            return frozenset({TicketStatus.OPEN})
+        return frozenset()
+
     def change_priority(
         self,
         principal: AuthPrincipal,

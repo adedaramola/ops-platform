@@ -9,7 +9,7 @@ overlays belong to the separate EKS observability platform repository.
 Build the image from the repository root:
 
 ```bash
-docker build -t opsdesk:0.7.0 .
+docker build -t opsdesk:0.7.1 .
 ```
 
 The runtime image:
@@ -80,9 +80,9 @@ The root base deliberately excludes the migration Job so applying the applicatio
 migration and rollout concurrently.
 
 The base has no Ingress, cloud annotations, certificate, storage class, or AWS identity binding.
-It retains the local image name `opsdesk:0.7.0` so platform overlays can select a registry without
+It retains the local image name `opsdesk:0.7.1` so platform overlays can select a registry without
 editing the reusable manifests. The Docker Hub overlays under `deploy/kubernetes/dockerhub` select
-`docker.io/walexdee/opsdesk:0.7.0`; production operators should replace that tag with the immutable
+`docker.io/walexdee/opsdesk:0.7.1`; production operators should replace that tag with the immutable
 digest emitted by the publishing workflow. AWS operators may instead select an immutable ECR
 digest.
 
@@ -125,8 +125,8 @@ the rerun succeeds, and never print either token.
 After the first successful publication, pull and inspect the image with:
 
 ```bash
-docker pull docker.io/walexdee/opsdesk:0.7.0
-docker image inspect docker.io/walexdee/opsdesk:0.7.0
+docker pull docker.io/walexdee/opsdesk:0.7.1
+docker image inspect docker.io/walexdee/opsdesk:0.7.1
 ```
 
 Render the public-image application and migration packages with:
@@ -212,7 +212,7 @@ ruff format --check src tests migrations
 ruff check src tests migrations
 mypy
 pytest --cov --cov-report=term-missing
-docker build -t opsdesk:0.7.0 .
+docker build -t opsdesk:0.7.1 .
 ```
 
 CI additionally checks the numeric image user, embedded migration assets, absence of development

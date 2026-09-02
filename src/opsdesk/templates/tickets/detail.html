@@ -15,6 +15,8 @@
   </div>
 </section>
 
+{% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+
 <section class="ticket-overview">
   <section class="card description-card">
     <div class="card-header"><div><h2>Request details</h2><p>Customer-provided context for this ticket.</p></div></div>
@@ -62,9 +64,15 @@
   <form class="control-card" method="post" action="/tickets/{{ ticket.id }}/status">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_version" value="{{ ticket.version }}">
     <label>Change status
-      <select name="status">{% if ticket.status in ["resolved", "closed"] %}<option value="open">Open</option>{% endif %}{% if can_manage %}{% for value in ["open", "in_progress", "waiting_for_user", "resolved", "closed"] if value != ticket.status %}<option value="{{ value }}">{{ value|replace("_", " ")|title }}</option>{% endfor %}{% endif %}</select>
+      <select id="ticket-status" name="status" required>
+        <option value="" selected disabled>Choose a status</option>
+        {% for value in ticket_statuses %}
+        <option value="{{ value }}"{% if value == ticket.status or value not in allowed_statuses %} disabled aria-disabled="true"{% endif %}>{{ value|replace("_", " ")|title }}{% if value == ticket.status %} (Current){% elif value not in allowed_statuses %} (Unavailable){% endif %}</option>
+        {% endfor %}
+      </select>
     </label>
-    <button type="submit" class="secondary">Update</button>
+    <p class="field-help">Unavailable transitions are disabled by the ticket workflow.</p>
+    <button id="status-update" type="submit" class="secondary"{% if not allowed_statuses %} disabled aria-disabled="true"{% endif %}>Update</button>
   </form>
   {% if can_manage %}
   <form class="control-card" method="post" action="/tickets/{{ ticket.id }}/priority">
@@ -77,9 +85,15 @@
   <form class="control-card" method="post" action="/tickets/{{ ticket.id }}/category">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_version" value="{{ ticket.version }}">
     <label>Change category
-      <select name="category_id">{% for category in categories if category.is_active and category.id != ticket.category_id %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</select>
+      <select id="ticket-category" name="category_id" required{% if not can_change_category %} disabled aria-disabled="true"{% endif %}>
+        <option value="" selected disabled>{% if can_change_category %}Choose a category{% else %}No other active categories{% endif %}</option>
+        {% for category in categories %}
+        <option value="{{ category.id }}"{% if not category.is_active or category.id == ticket.category_id %} disabled aria-disabled="true"{% endif %}>{{ category.name }}{% if category.id == ticket.category_id %} (Current){% elif not category.is_active %} (Inactive){% endif %}</option>
+        {% endfor %}
+      </select>
     </label>
-    <button type="submit" class="secondary">Update</button>
+    <p class="field-help">Current and inactive categories cannot be selected.</p>
+    <button id="category-update" type="submit" class="secondary"{% if not can_change_category %} disabled aria-disabled="true"{% endif %}>Update</button>
   </form>
   {% endif %}
 </section>

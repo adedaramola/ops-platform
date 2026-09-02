@@ -134,7 +134,7 @@ def test_docker_hub_overlays_use_the_canonical_public_image() -> None:
         {
             "name": "opsdesk",
             "newName": "docker.io/walexdee/opsdesk",
-            "newTag": "0.7.0",
+            "newTag": "0.7.1",
         }
     ]
 
