@@ -270,12 +270,12 @@ resources. The state was verified on 2026-08-25:
   allow-all CIDRs remains intact, so the live endpoint must be narrowed to explicit `/32` addresses
   after testing.
 - OpsDesk Docker workflow run `33647802903`, triggered by documentation commit `e8a6a51`, built and
-  published the multi-architecture image successfully. Its final retention step failed when Docker
-  Hub returned HTTP 403 while deleting old tag `0.6.0`, so the overall workflow is red even though
-  publication completed. The configured credential authenticated and pushed but did not authorize
-  tag deletion. The owner deferred replacing `DOCKERHUB_TOKEN`; the follow-up is a scoped Docker Hub
-  token with Read, Write, and Delete permission, followed by a workflow rerun and retention check.
-  Do not expose the token or make retention non-blocking.
+  published the multi-architecture image successfully. Its first attempt's retention step failed
+  when Docker Hub returned HTTP 403 while deleting old tag `0.6.0`. The owner replaced the GitHub
+  `DOCKERHUB_TOKEN` with a token that authorizes Read, Write, and Delete. Attempt 2 then completed
+  every step successfully, including retention, and an independent public tag dry run reported that
+  no releases exceed the newest-three policy. The superseded token can be revoked after confirming
+  that no other integration uses it; do not expose either token.
 
 ## Remaining release operations
 
@@ -283,8 +283,6 @@ resources. The state was verified on 2026-08-25:
   after interactive testing.
 - Execute an isolated RDS snapshot/PITR restore and record its measured RTO/RPO; local logical
   restore validation does not substitute for that AWS exercise.
-- Replace the deferred GitHub `DOCKERHUB_TOKEN` with a repository-scoped Read/Write/Delete token,
-  rerun Docker workflow `33647802903`, and verify that the three-release retention policy succeeds.
 - Rotate provider/API keys only when the user begins the next stage; rotation was explicitly
   deferred.
 - Keep GitOps auto-remediation de-scoped. It is not part of the integrated architecture.

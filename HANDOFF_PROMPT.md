@@ -1,7 +1,7 @@
 # Continuation handoff prompt
 
-Use this context for the remaining access cleanup, registry-credential remediation, and recovery
-validation. It does not authorize new live AWS changes beyond the already deployed environment.
+Use this context for the remaining access cleanup and recovery validation. It does not authorize
+new live AWS changes beyond the already deployed environment.
 
 ---
 
@@ -60,13 +60,12 @@ context. Both the work queue and DLQ were empty after processing.
 
 The multi-LLM SNS email subscription is confirmed, and SNS accepted a test publication after
 confirmation. A later documentation-only OpsDesk push triggered Docker image workflow run
-`33647802903`. The multi-architecture build and Docker Hub push succeeded, but the retention step
-failed with HTTP 403 while deleting old tag `0.6.0`. The owner deferred replacement of the GitHub
-secret `DOCKERHUB_TOKEN`. The current credential can publish but did not authorize the required tag
-deletion; do not expose or reuse its value. Create a repository-scoped Docker Hub token with Read,
-Write, and Delete permission, replace only that GitHub Actions secret, rerun the failed workflow,
-and verify retention before revoking the old token. Do not weaken the retention step to hide the
-failure.
+`33647802903`. The multi-architecture build and Docker Hub push succeeded, but its first attempt's
+retention step failed with HTTP 403 while deleting old tag `0.6.0`. The owner replaced the GitHub
+secret `DOCKERHUB_TOKEN` with a Docker Hub token that authorizes Read, Write, and Delete. Attempt 2
+then passed image publication and retention, and an independent public tag dry run confirmed that
+no releases exceed the newest-three policy. The superseded Docker Hub token may now be revoked after
+the owner confirms it is not used by another integration. Do not expose either token.
 
 The owner temporarily authorized `0.0.0.0/0` for the EKS public API endpoint during testing; private
 endpoint access remains enabled. The repository guardrail still rejects allow-all CIDRs and was not
@@ -78,9 +77,7 @@ subscribe merely to inspect state.
 
 1. Replace the temporary EKS API `0.0.0.0/0` allowlist with explicit operator `/32` CIDRs after the
    owner confirms interactive testing is finished.
-2. Replace the deferred Docker Hub token with a scoped Read/Write/Delete token, rerun workflow
-   `33647802903`, and verify that image publication and three-release retention both succeed.
-3. Restore an RDS snapshot/PITR into an isolated target and record measured RTO/RPO before claiming
+2. Restore an RDS snapshot/PITR into an isolated target and record measured RTO/RPO before claiming
    the AWS recovery requirement complete.
 
 ## Working rules
@@ -97,8 +94,7 @@ subscribe merely to inspect state.
 - The owner chose direct pushes to `main` for speed. Validate each change before pushing and keep
   repositories separate.
 
-Start by reporting repository and live runtime status, including the temporary EKS endpoint access
-and deferred Docker Hub token remediation, then continue with the requested cleanup or isolated AWS
-recovery exercise.
+Start by reporting repository and live runtime status, including the temporary EKS endpoint access,
+then continue with the requested cleanup or isolated AWS recovery exercise.
 
 ---
