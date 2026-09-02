@@ -13,7 +13,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip build \
 
 FROM ${PYTHON_IMAGE} AS runtime
 
-ARG APP_VERSION=0.7.1
+ARG APP_VERSION=0.7.2
 ARG VCS_REF=unknown
 
 LABEL org.opencontainers.image.title="OpsDesk" \

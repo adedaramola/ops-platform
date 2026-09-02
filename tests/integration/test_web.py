@@ -45,7 +45,11 @@ def test_browser_registration_login_and_logout(client: TestClient) -> None:
         follow_redirects=False,
     )
     assert login_response.status_code == 303
-    assert login_response.headers["location"] == "/account"
+    assert login_response.headers["location"] == "/tickets"
+
+    tickets_page = client.get(login_response.headers["location"])
+    assert tickets_page.status_code == 200
+    assert "Tickets" in tickets_page.text
 
     account_page = client.get("/account")
     assert account_page.status_code == 200

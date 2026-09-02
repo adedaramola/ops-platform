@@ -150,7 +150,7 @@ def login_submit(
             error=error.message,
             status_code=error.status_code,
         )
-    response = RedirectResponse("/account", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse("/tickets", status_code=status.HTTP_303_SEE_OTHER)
     set_session_cookie(response, result.raw_session_token, settings)
     return response
 
